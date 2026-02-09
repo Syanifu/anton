@@ -55,15 +55,6 @@ export default function SignUpPage() {
 
         setLoading(true);
         try {
-            // TODO: Integrate with Supabase Auth
-            // if (useMagicLink) {
-            //     const { error } = await supabase.auth.signInWithOtp({ email });
-            //     if (error) throw error;
-            // } else {
-            //     const { data, error } = await supabase.auth.signUp({ email, password });
-            //     if (error) throw error;
-            // }
-
             if (useMagicLink) {
                 setSuccessMessage(`Magic link sent to ${email}. Check your inbox!`);
             } else {
@@ -80,13 +71,6 @@ export default function SignUpPage() {
     const handleGoogleSignIn = async () => {
         setLoadingProvider('google');
         try {
-            // TODO: Integrate with Supabase OAuth
-            // const { error } = await supabase.auth.signInWithOAuth({
-            //     provider: 'google',
-            //     options: { redirectTo: window.location.origin + '/auth/callback' },
-            // });
-            // if (error) throw error;
-
             setTimeout(() => {
                 setLoadingProvider(null);
                 setShowOnboarding(true);
@@ -100,13 +84,6 @@ export default function SignUpPage() {
     const handleAppleSignIn = async () => {
         setLoadingProvider('apple');
         try {
-            // TODO: Integrate with Supabase OAuth
-            // const { error } = await supabase.auth.signInWithOAuth({
-            //     provider: 'apple',
-            //     options: { redirectTo: window.location.origin + '/auth/callback' },
-            // });
-            // if (error) throw error;
-
             setTimeout(() => {
                 setLoadingProvider(null);
                 setShowOnboarding(true);
@@ -117,9 +94,8 @@ export default function SignUpPage() {
         }
     };
 
-    const handleConnect = (type: 'whatsapp' | 'gmail') => {
+    const handleConnect = (_type: 'whatsapp' | 'gmail') => {
         setShowOnboarding(false);
-        // TODO: Navigate to connection flow
         window.location.href = '/';
     };
 
@@ -178,7 +154,7 @@ export default function SignUpPage() {
                         padding: 20px;
                     }
                     .modal {
-                        background: white;
+                        background: var(--card-background);
                         border-radius: 24px 24px 0 0;
                         padding: 32px 24px 40px;
                         width: 100%;
@@ -192,12 +168,12 @@ export default function SignUpPage() {
                     .modal-title {
                         font-size: 24px;
                         font-weight: 700;
-                        color: #111827;
+                        color: var(--foreground);
                         margin-bottom: 8px;
                     }
                     .modal-subtitle {
                         font-size: 15px;
-                        color: #6B7280;
+                        color: var(--muted);
                         margin-bottom: 32px;
                         line-height: 1.5;
                     }
@@ -211,8 +187,8 @@ export default function SignUpPage() {
                         display: flex;
                         align-items: center;
                         gap: 14px;
-                        background: #F9FAFB;
-                        border: 1px solid #E5E7EB;
+                        background: var(--accent-gray-bg);
+                        border: 1px solid var(--card-border);
                         border-radius: 16px;
                         padding: 16px;
                         cursor: pointer;
@@ -220,7 +196,7 @@ export default function SignUpPage() {
                         transition: background 0.2s;
                     }
                     .connect-card:hover {
-                        background: #F3F4F6;
+                        opacity: 0.9;
                     }
                     .connect-icon {
                         font-size: 28px;
@@ -233,20 +209,20 @@ export default function SignUpPage() {
                     .connect-title {
                         font-size: 16px;
                         font-weight: 600;
-                        color: #111827;
+                        color: var(--foreground);
                     }
                     .connect-desc {
                         font-size: 13px;
-                        color: #6B7280;
+                        color: var(--muted);
                     }
                     .connect-arrow {
                         font-size: 18px;
-                        color: #9CA3AF;
+                        color: var(--muted);
                     }
                     .skip-btn {
                         background: none;
                         border: none;
-                        color: #6B7280;
+                        color: var(--muted);
                         font-size: 15px;
                         font-weight: 500;
                         cursor: pointer;
@@ -254,7 +230,7 @@ export default function SignUpPage() {
                     }
                     .modal-footnote {
                         font-size: 12px;
-                        color: #9CA3AF;
+                        color: var(--muted);
                         margin-top: 8px;
                     }
                 `}</style>
@@ -352,11 +328,12 @@ export default function SignUpPage() {
                         padding: 24px;
                         max-width: 400px;
                         margin: 0 auto;
+                        background: var(--background);
                     }
                     .back-btn {
                         background: none;
                         border: none;
-                        color: #6366F1;
+                        color: var(--accent-primary);
                         font-size: 16px;
                         font-weight: 500;
                         cursor: pointer;
@@ -366,7 +343,7 @@ export default function SignUpPage() {
                     .form-title {
                         font-size: 24px;
                         font-weight: 700;
-                        color: #111827;
+                        color: var(--foreground);
                         margin-bottom: 32px;
                     }
                     .input-group {
@@ -376,30 +353,33 @@ export default function SignUpPage() {
                         display: block;
                         font-size: 14px;
                         font-weight: 500;
-                        color: #374151;
+                        color: var(--foreground);
                         margin-bottom: 8px;
                     }
                     .input-group input {
                         width: 100%;
-                        background: #F9FAFB;
-                        border: 1px solid #E5E7EB;
+                        background: var(--accent-gray-bg);
+                        border: 1px solid var(--card-border);
                         border-radius: 12px;
                         padding: 14px 16px;
                         font-size: 16px;
-                        color: #111827;
+                        color: var(--foreground);
                         outline: none;
                         transition: border-color 0.2s;
                     }
+                    .input-group input::placeholder {
+                        color: var(--muted);
+                    }
                     .input-group input:focus {
-                        border-color: #6366F1;
+                        border-color: var(--accent-primary);
                     }
                     .input-group input.error {
-                        border-color: #EF4444;
+                        border-color: var(--accent-red);
                     }
                     .error-text {
                         display: block;
                         font-size: 12px;
-                        color: #EF4444;
+                        color: var(--accent-red);
                         margin-top: 4px;
                     }
                     .toggle-group {
@@ -411,7 +391,7 @@ export default function SignUpPage() {
                     }
                     .toggle-group span {
                         font-size: 14px;
-                        color: #374151;
+                        color: var(--foreground);
                     }
                     .toggle {
                         position: relative;
@@ -427,7 +407,7 @@ export default function SignUpPage() {
                         position: absolute;
                         cursor: pointer;
                         inset: 0;
-                        background: #D1D5DB;
+                        background: var(--card-border);
                         border-radius: 28px;
                         transition: 0.3s;
                     }
@@ -438,19 +418,19 @@ export default function SignUpPage() {
                         width: 22px;
                         left: 3px;
                         bottom: 3px;
-                        background: white;
+                        background: var(--background);
                         border-radius: 50%;
                         transition: 0.3s;
                     }
                     .toggle input:checked + .toggle-slider {
-                        background: #6366F1;
+                        background: var(--accent-primary);
                     }
                     .toggle input:checked + .toggle-slider:before {
                         transform: translateX(20px);
                     }
                     .submit-btn {
                         width: 100%;
-                        background: #6366F1;
+                        background: var(--accent-primary);
                         color: white;
                         border: none;
                         border-radius: 12px;
@@ -473,13 +453,13 @@ export default function SignUpPage() {
                     }
                     .hint {
                         font-size: 13px;
-                        color: #6B7280;
+                        color: var(--muted);
                         text-align: center;
                         margin-top: 16px;
                     }
                     .success-message {
-                        background: #ECFDF5;
-                        border: 1px solid #10B981;
+                        background: var(--accent-green-bg);
+                        border: 1px solid var(--accent-green);
                         border-radius: 12px;
                         padding: 20px;
                         text-align: center;
@@ -490,14 +470,14 @@ export default function SignUpPage() {
                         justify-content: center;
                         width: 40px;
                         height: 40px;
-                        background: #10B981;
+                        background: var(--accent-green);
                         color: white;
                         border-radius: 50%;
                         font-size: 20px;
                         margin-bottom: 12px;
                     }
                     .success-message p {
-                        color: #065F46;
+                        color: var(--foreground);
                         font-size: 15px;
                     }
                     .spinner {
@@ -582,6 +562,7 @@ export default function SignUpPage() {
                     padding: 60px 24px 40px;
                     max-width: 400px;
                     margin: 0 auto;
+                    background: var(--background);
                 }
                 .header {
                     text-align: center;
@@ -590,18 +571,18 @@ export default function SignUpPage() {
                 .logo {
                     font-size: 32px;
                     font-weight: 800;
-                    color: #6366F1;
+                    color: var(--accent-primary);
                     margin-bottom: 24px;
                 }
                 .title {
                     font-size: 28px;
                     font-weight: 700;
-                    color: #111827;
+                    color: var(--foreground);
                     margin-bottom: 8px;
                 }
                 .subtitle {
                     font-size: 16px;
-                    color: #6B7280;
+                    color: var(--muted);
                 }
                 .buttons {
                     display: flex;
@@ -629,17 +610,17 @@ export default function SignUpPage() {
                     opacity: 0.9;
                 }
                 .auth-btn.email {
-                    background: #6366F1;
+                    background: var(--accent-primary);
                     color: white;
                 }
                 .auth-btn.google {
-                    background: white;
-                    color: #1F2937;
-                    border: 1px solid #E5E7EB;
+                    background: var(--card-background);
+                    color: var(--foreground);
+                    border: 1px solid var(--card-border);
                 }
                 .auth-btn.apple {
-                    background: #000;
-                    color: white;
+                    background: var(--foreground);
+                    color: var(--background);
                 }
                 .btn-icon {
                     font-size: 20px;
@@ -650,12 +631,12 @@ export default function SignUpPage() {
                 }
                 .legal {
                     font-size: 13px;
-                    color: #9CA3AF;
+                    color: var(--muted);
                     text-align: center;
                     line-height: 1.5;
                 }
                 .legal a {
-                    color: #6366F1;
+                    color: var(--accent-primary);
                     font-weight: 500;
                     text-decoration: none;
                 }
@@ -671,8 +652,8 @@ export default function SignUpPage() {
                     animation: spin 0.8s linear infinite;
                 }
                 .spinner.dark {
-                    border-color: rgba(0,0,0,0.1);
-                    border-top-color: #1F2937;
+                    border-color: var(--card-border);
+                    border-top-color: var(--foreground);
                 }
                 @keyframes spin {
                     to { transform: rotate(360deg); }
