@@ -1,12 +1,19 @@
 'use client';
 
-import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { mockPriorityActions, mockConversations, mockInvoices } from '@/lib/data';
 
 export default function TodayPage() {
+  const router = useRouter();
+
+  const handleLogout = () => {
+    // Clear any auth tokens/session here
+    localStorage.removeItem('anton-auth');
+    router.push('/signup');
+  };
   // Filter Opportunities
   const opportunities = mockConversations
     .filter((c) => c.status === 'lead' && (c.leadScore || 0) >= 0.6)
@@ -33,8 +40,15 @@ export default function TodayPage() {
   return (
     <main className="container animate-slide-in">
       <header style={{ padding: 'var(--spacing-lg) var(--spacing-md)' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: '800' }}>Today</h1>
-        <p className="text-muted">Welcome back, Anton.</p>
+        <div className="flex-between">
+          <div>
+            <h1 style={{ fontSize: '2rem', fontWeight: '800' }}>Today</h1>
+            <p className="text-muted">Welcome back, Anton.</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={handleLogout} style={{ color: 'var(--accent-red)' }}>
+            Logout
+          </Button>
+        </div>
       </header>
 
       {/* 1. PRIORITY ACTIONS */}

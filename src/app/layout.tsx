@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { BottomNav } from "@/components/BottomNav";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -25,6 +26,7 @@ export default function RootLayout({
         <ThemeProvider>
           <ThemeToggle />
           {children}
+          <BottomNav />
         </ThemeProvider>
       </body>
     </html>

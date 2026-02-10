@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -67,6 +68,7 @@ function formatLastSynced(date: Date | null): string {
 }
 
 export default function ProfilePage() {
+    const router = useRouter();
     const [user, setUser] = useState(mockUser);
     const [accounts, setAccounts] = useState<ConnectedAccount[]>(initialAccounts);
     const [isEditing, setIsEditing] = useState(false);
@@ -126,6 +128,9 @@ export default function ProfilePage() {
     return (
         <main className="container animate-slide-in">
             <header style={{ padding: 'var(--spacing-lg) var(--spacing-md)' }}>
+                <Button variant="ghost" size="sm" onClick={() => router.push('/')} style={{ marginBottom: 'var(--spacing-sm)' }}>
+                    ← Back to Today
+                </Button>
                 <h1 style={{ fontSize: '2rem', fontWeight: '800' }}>Profile</h1>
                 <p className="text-muted">Manage your account settings</p>
             </header>
