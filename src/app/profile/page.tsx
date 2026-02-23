@@ -1,482 +1,292 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useRef, useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
-
-type Platform = 'whatsapp' | 'telegram' | 'slack' | 'gmail' | 'upwork' | 'fiverr' | 'stripe';
-type ConnectionStatus = 'connected' | 'disconnected' | 'needs_reauth';
-
-interface ConnectedAccount {
-    platform: Platform;
-    identifier: string;
-    lastSyncedAt: Date | null;
-    status: ConnectionStatus;
-    isSyncing?: boolean;
-}
-
-const platformIcons: Record<Platform, string> = {
-    whatsapp: '💬',
-    telegram: '✈️',
-    slack: '💼',
-    gmail: '📧',
-    upwork: '🟢',
-    fiverr: '🎯',
-    stripe: '💳',
-};
-
-const platformNames: Record<Platform, string> = {
-    whatsapp: 'WhatsApp',
-    telegram: 'Telegram',
-    slack: 'Slack',
-    gmail: 'Gmail',
-    upwork: 'Upwork',
-    fiverr: 'Fiverr',
-    stripe: 'Stripe',
-};
-
-// Mock user data
-const mockUser = {
-    name: 'Anton User',
-    email: 'anton@example.com',
-    avatar: null as string | null,
-};
-
-// Mock connected accounts
-const initialAccounts: ConnectedAccount[] = [
-    { platform: 'whatsapp', identifier: '+1 234 567 8900', lastSyncedAt: new Date(Date.now() - 1000 * 60 * 5), status: 'connected' },
-    { platform: 'gmail', identifier: 'anton@gmail.com', lastSyncedAt: new Date(Date.now() - 1000 * 60 * 30), status: 'connected' },
-    { platform: 'slack', identifier: 'Anton Workspace', lastSyncedAt: null, status: 'needs_reauth' },
-    { platform: 'stripe', identifier: 'acct_1234...', lastSyncedAt: new Date(Date.now() - 1000 * 60 * 60 * 2), status: 'connected' },
-];
-
-const availablePlatforms: Platform[] = ['telegram', 'upwork', 'fiverr'];
-
-function formatLastSynced(date: Date | null): string {
-    if (!date) return 'Never synced';
-    const diff = Date.now() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return `${days}d ago`;
-}
+import { Input } from '@/components/ui/Input';
+import { useProfile } from '@/context/ProfileContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ProfilePage() {
     const router = useRouter();
-    const [user, setUser] = useState(mockUser);
-    const [accounts, setAccounts] = useState<ConnectedAccount[]>(initialAccounts);
+    const { profilePicture, userName, userEmail, updateProfilePicture, updateUserName, updateUserEmail } = useProfile();
+    const { signOut } = useAuth();
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [isEditing, setIsEditing] = useState(false);
-    const [editName, setEditName] = useState(user.name);
-    const [quietHours, setQuietHours] = useState(false);
-    const [pushNotifications, setPushNotifications] = useState(true);
-    const [emailDigest, setEmailDigest] = useState(true);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [editName, setEditName] = useState(userName);
+    const [editEmail, setEditEmail] = useState(userEmail);
+    const [showNotificationPopup, setShowNotificationPopup] = useState(false);
+    const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-    const handleSaveProfile = () => {
-        setUser({ ...user, name: editName });
+    useEffect(() => {
+        const saved = localStorage.getItem('notifications_enabled');
+        if (saved !== null) setNotificationsEnabled(saved === 'true');
+    }, []);
+
+    const toggleNotifications = () => {
+        const newValue = !notificationsEnabled;
+        setNotificationsEnabled(newValue);
+        localStorage.setItem('notifications_enabled', String(newValue));
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = reader.result as string;
+                updateProfilePicture(base64String);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleEditClick = () => {
+        setEditName(userName);
+        setEditEmail(userEmail);
+        setIsEditing(true);
+    };
+
+    const handleSave = () => {
+        updateUserName(editName);
+        updateUserEmail(editEmail);
         setIsEditing(false);
     };
 
-    const handleSync = (platform: Platform) => {
-        setAccounts(accounts.map(acc =>
-            acc.platform === platform ? { ...acc, isSyncing: true } : acc
-        ));
-
-        // Simulate sync
-        setTimeout(() => {
-            setAccounts(accounts.map(acc =>
-                acc.platform === platform
-                    ? { ...acc, isSyncing: false, lastSyncedAt: new Date(), status: 'connected' as ConnectionStatus }
-                    : acc
-            ));
-        }, 2000);
+    const handleCancel = () => {
+        setIsEditing(false);
     };
-
-    const handleDisconnect = (platform: Platform) => {
-        setAccounts(accounts.filter(acc => acc.platform !== platform));
-    };
-
-    const handleConnect = (platform: Platform) => {
-        // Simulate OAuth flow
-        const newAccount: ConnectedAccount = {
-            platform,
-            identifier: `${platformNames[platform]} Account`,
-            lastSyncedAt: new Date(),
-            status: 'connected',
-        };
-        setAccounts([...accounts, newAccount]);
-    };
-
-    const handleExportData = () => {
-        alert('Data export will be emailed to you within 24 hours.');
-    };
-
-    const handleDeleteAccount = () => {
-        alert('Account deletion request submitted. You will receive a confirmation email.');
-        setShowDeleteConfirm(false);
-    };
-
-    const connectedPlatforms = accounts.map(a => a.platform);
-    const unconnectedPlatforms = availablePlatforms.filter(p => !connectedPlatforms.includes(p));
 
     return (
-        <main className="container animate-slide-in">
-            <header style={{ padding: 'var(--spacing-lg) var(--spacing-md)' }}>
-                <Button variant="ghost" size="sm" onClick={() => router.push('/')} style={{ marginBottom: 'var(--spacing-sm)' }}>
-                    ← Back to Today
-                </Button>
-                <h1 style={{ fontSize: '2rem', fontWeight: '800' }}>Profile</h1>
-                <p className="text-muted">Manage your account settings</p>
-            </header>
+        <main className="container animate-fade-in">
+            {/* Header */}
+            <div className="flex justify-between items-center" style={{ padding: '24px 20px 12px' }}>
+                <h1 className="text-h1">Settings</h1>
+                <Avatar src={profilePicture} size={40} />
+            </div>
 
-            {/* 1. PROFILE INFO */}
-            <section className="animate-slide-in" style={{ animationDelay: '0.1s' }}>
-                <div className="flex-between" style={{ padding: '0 var(--spacing-md) var(--spacing-sm)' }}>
-                    <h2 className="text-lg" style={{ color: 'var(--accent-primary)' }}>PROFILE INFO</h2>
-                </div>
-                <div style={{ padding: '0 var(--spacing-md)' }}>
-                    <Card className="shadow-sm">
-                        <div className="flex-between" style={{ marginBottom: 'var(--spacing-md)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-                                <div style={{
-                                    width: 64,
-                                    height: 64,
-                                    borderRadius: '50%',
-                                    background: 'var(--accent-primary-bg)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '1.5rem',
-                                    fontWeight: 'bold',
-                                    color: 'var(--accent-primary)',
-                                }}>
-                                    {user.avatar ? (
-                                        <img src={user.avatar} alt="Avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                                    ) : (
-                                        user.name.charAt(0).toUpperCase()
-                                    )}
-                                </div>
-                                <div>
-                                    {isEditing ? (
-                                        <input
-                                            type="text"
-                                            value={editName}
-                                            onChange={(e) => setEditName(e.target.value)}
-                                            style={{
-                                                fontSize: '1.25rem',
-                                                fontWeight: 600,
-                                                border: '1px solid var(--card-border)',
-                                                borderRadius: 'var(--radius)',
-                                                padding: '0.5rem',
-                                                background: 'var(--background)',
-                                                color: 'var(--foreground)',
-                                            }}
-                                        />
-                                    ) : (
-                                        <p style={{ fontWeight: 600, fontSize: '1.25rem' }}>{user.name}</p>
-                                    )}
-                                    <p className="text-sm text-muted">{user.email}</p>
-                                </div>
-                            </div>
-                            {isEditing ? (
-                                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                                    <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                    <Button variant="primary" size="sm" onClick={handleSaveProfile}>Save</Button>
-                                </div>
-                            ) : (
-                                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>Edit</Button>
-                            )}
-                        </div>
-                    </Card>
-                </div>
-            </section>
-
-            {/* 2. CONNECTED ACCOUNTS */}
-            <section className="animate-slide-in" style={{ animationDelay: '0.2s', marginTop: 'var(--spacing-lg)' }}>
-                <div className="flex-between" style={{ padding: '0 var(--spacing-md) var(--spacing-sm)' }}>
-                    <h2 className="text-lg" style={{ color: 'var(--accent-blue)' }}>CONNECTED ACCOUNTS</h2>
-                    <Badge variant="blue">{accounts.length}</Badge>
-                </div>
-                <div className="flex-col" style={{ padding: '0 var(--spacing-md)', gap: 'var(--spacing-md)' }}>
-                    {accounts.map((account) => (
-                        <Card key={account.platform} className="shadow-sm">
-                            <div className="flex-between" style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                                    <span style={{ fontSize: '1.5rem' }}>{platformIcons[account.platform]}</span>
-                                    <div>
-                                        <p style={{ fontWeight: 600 }}>{platformNames[account.platform]}</p>
-                                        <p className="text-sm text-muted">{account.identifier}</p>
-                                    </div>
-                                </div>
-                                <Badge variant={
-                                    account.status === 'connected' ? 'green' :
-                                    account.status === 'needs_reauth' ? 'red' : 'gray'
-                                }>
-                                    {account.status === 'connected' ? 'Connected' :
-                                     account.status === 'needs_reauth' ? 'Needs Reauth' : 'Disconnected'}
-                                </Badge>
-                            </div>
-                            <div className="flex-between" style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                <p className="text-sm text-muted">
-                                    {account.isSyncing ? (
-                                        <span style={{ color: 'var(--accent-blue)' }}>Syncing...</span>
-                                    ) : (
-                                        <>Last synced: {formatLastSynced(account.lastSyncedAt)}</>
-                                    )}
-                                </p>
-                            </div>
-                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => handleSync(account.platform)}
-                                    disabled={account.isSyncing}
-                                >
-                                    {account.isSyncing ? 'Syncing...' : 'Sync Now'}
-                                </Button>
-                                <Button variant="ghost" size="sm">View Details</Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDisconnect(account.platform)}
-                                    style={{ color: 'var(--accent-red)' }}
-                                >
-                                    Disconnect
-                                </Button>
-                            </div>
-                        </Card>
-                    ))}
-                </div>
-            </section>
-
-            {/* 3. CONNECT MORE PLATFORMS */}
-            {unconnectedPlatforms.length > 0 && (
-                <section className="animate-slide-in" style={{ animationDelay: '0.3s', marginTop: 'var(--spacing-lg)' }}>
-                    <div className="flex-between" style={{ padding: '0 var(--spacing-md) var(--spacing-sm)' }}>
-                        <h2 className="text-lg" style={{ color: 'var(--accent-green)' }}>CONNECT MORE</h2>
+            {/* Profile Section */}
+            <div style={{ padding: '0 20px 24px' }}>
+                <div className="flex items-center gap-lg" style={{ marginBottom: '24px' }}>
+                    <div style={{ position: 'relative' }}>
+                        <Avatar src={profilePicture} size={80} />
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                        />
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            style={{
+                                position: 'absolute',
+                                bottom: 0,
+                                right: 0,
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '50%',
+                                background: 'var(--brand-blue)',
+                                border: '2px solid var(--background)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                fontSize: '14px'
+                            }}
+                        >
+                            📷
+                        </button>
                     </div>
-                    <div className="flex-col" style={{ padding: '0 var(--spacing-md)', gap: 'var(--spacing-md)' }}>
-                        {unconnectedPlatforms.map((platform) => (
-                            <Card key={platform} className="shadow-sm">
-                                <div className="flex-between">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                                        <span style={{ fontSize: '1.5rem' }}>{platformIcons[platform]}</span>
-                                        <p style={{ fontWeight: 600 }}>{platformNames[platform]}</p>
-                                    </div>
-                                    <Button variant="primary" size="sm" onClick={() => handleConnect(platform)}>
-                                        Connect
+                    <div style={{ flex: 1 }}>
+                        {isEditing ? (
+                            <div className="flex-col gap-sm">
+                                <Input
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    placeholder="Name"
+                                    style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}
+                                />
+                                <Input
+                                    value={editEmail}
+                                    onChange={(e) => setEditEmail(e.target.value)}
+                                    placeholder="Email"
+                                    style={{ background: 'var(--card-bg)', color: 'var(--foreground)' }}
+                                />
+                                <div className="flex gap-sm">
+                                    <Button variant="primary" size="sm" onClick={handleSave}>
+                                        Save
                                     </Button>
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
-                </section>
-            )}
-
-            {/* 4. SECURITY & PREFERENCES */}
-            <section className="animate-slide-in" style={{ animationDelay: '0.4s', marginTop: 'var(--spacing-lg)' }}>
-                <div className="flex-between" style={{ padding: '0 var(--spacing-md) var(--spacing-sm)' }}>
-                    <h2 className="text-lg" style={{ color: 'var(--muted)' }}>SECURITY & PREFERENCES</h2>
-                </div>
-                <div style={{ padding: '0 var(--spacing-md)' }}>
-                    <Card className="shadow-sm">
-                        <div className="flex-col" style={{ gap: 'var(--spacing-md)' }}>
-                            {/* Quiet Hours */}
-                            <div className="flex-between">
-                                <div>
-                                    <p style={{ fontWeight: 600 }}>Quiet Hours</p>
-                                    <p className="text-sm text-muted">Disable notifications 10pm - 8am</p>
-                                </div>
-                                <label style={{
-                                    position: 'relative',
-                                    width: 50,
-                                    height: 28,
-                                    cursor: 'pointer',
-                                }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={quietHours}
-                                        onChange={() => setQuietHours(!quietHours)}
-                                        style={{ opacity: 0, width: 0, height: 0 }}
-                                    />
-                                    <span style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        background: quietHours ? 'var(--accent-primary)' : 'var(--card-border)',
-                                        borderRadius: 14,
-                                        transition: 'all 0.3s ease',
-                                    }}>
-                                        <span style={{
-                                            position: 'absolute',
-                                            top: 2,
-                                            left: quietHours ? 24 : 2,
-                                            width: 24,
-                                            height: 24,
-                                            background: 'var(--background)',
-                                            borderRadius: '50%',
-                                            transition: 'left 0.3s ease',
-                                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                                        }} />
-                                    </span>
-                                </label>
-                            </div>
-
-                            {/* Push Notifications */}
-                            <div className="flex-between">
-                                <div>
-                                    <p style={{ fontWeight: 600 }}>Push Notifications</p>
-                                    <p className="text-sm text-muted">Receive push notifications</p>
-                                </div>
-                                <label style={{
-                                    position: 'relative',
-                                    width: 50,
-                                    height: 28,
-                                    cursor: 'pointer',
-                                }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={pushNotifications}
-                                        onChange={() => setPushNotifications(!pushNotifications)}
-                                        style={{ opacity: 0, width: 0, height: 0 }}
-                                    />
-                                    <span style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        background: pushNotifications ? 'var(--accent-primary)' : 'var(--card-border)',
-                                        borderRadius: 14,
-                                        transition: 'all 0.3s ease',
-                                    }}>
-                                        <span style={{
-                                            position: 'absolute',
-                                            top: 2,
-                                            left: pushNotifications ? 24 : 2,
-                                            width: 24,
-                                            height: 24,
-                                            background: 'var(--background)',
-                                            borderRadius: '50%',
-                                            transition: 'left 0.3s ease',
-                                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                                        }} />
-                                    </span>
-                                </label>
-                            </div>
-
-                            {/* Email Digest */}
-                            <div className="flex-between">
-                                <div>
-                                    <p style={{ fontWeight: 600 }}>Daily Email Digest</p>
-                                    <p className="text-sm text-muted">Receive daily summary</p>
-                                </div>
-                                <label style={{
-                                    position: 'relative',
-                                    width: 50,
-                                    height: 28,
-                                    cursor: 'pointer',
-                                }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={emailDigest}
-                                        onChange={() => setEmailDigest(!emailDigest)}
-                                        style={{ opacity: 0, width: 0, height: 0 }}
-                                    />
-                                    <span style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        background: emailDigest ? 'var(--accent-primary)' : 'var(--card-border)',
-                                        borderRadius: 14,
-                                        transition: 'all 0.3s ease',
-                                    }}>
-                                        <span style={{
-                                            position: 'absolute',
-                                            top: 2,
-                                            left: emailDigest ? 24 : 2,
-                                            width: 24,
-                                            height: 24,
-                                            background: 'var(--background)',
-                                            borderRadius: '50%',
-                                            transition: 'left 0.3s ease',
-                                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                                        }} />
-                                    </span>
-                                </label>
-                            </div>
-
-                            <hr style={{ border: 'none', borderTop: '1px solid var(--card-border)', margin: 'var(--spacing-sm) 0' }} />
-
-                            {/* Data Export */}
-                            <div className="flex-between">
-                                <div>
-                                    <p style={{ fontWeight: 600 }}>Export My Data</p>
-                                    <p className="text-sm text-muted">Download all your data</p>
-                                </div>
-                                <Button variant="outline" size="sm" onClick={handleExportData}>
-                                    Export
-                                </Button>
-                            </div>
-                        </div>
-                    </Card>
-                </div>
-            </section>
-
-            {/* 5. DANGER ZONE */}
-            <section className="animate-slide-in" style={{ animationDelay: '0.5s', marginTop: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)' }}>
-                <div className="flex-between" style={{ padding: '0 var(--spacing-md) var(--spacing-sm)' }}>
-                    <h2 className="text-lg" style={{ color: 'var(--accent-red)' }}>DANGER ZONE</h2>
-                </div>
-                <div style={{ padding: '0 var(--spacing-md)' }}>
-                    <Card className="shadow-sm" style={{ borderColor: 'var(--accent-red)', background: 'var(--accent-red-bg)' }}>
-                        {showDeleteConfirm ? (
-                            <div className="flex-col gap-md">
-                                <p style={{ fontWeight: 600 }}>Are you sure you want to delete your account?</p>
-                                <p className="text-sm text-muted">
-                                    This action is irreversible. All your data including conversations, invoices,
-                                    and connected accounts will be permanently deleted.
-                                </p>
-                                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                                    <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
-                                    <Button
-                                        variant="primary"
-                                        onClick={handleDeleteAccount}
-                                        style={{ background: 'var(--accent-red)', color: 'white' }}
-                                    >
-                                        Yes, Delete My Account
+                                    <Button variant="ghost" size="sm" onClick={handleCancel}>
+                                        Cancel
                                     </Button>
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex-between">
-                                <div>
-                                    <p style={{ fontWeight: 600 }}>Delete Account</p>
-                                    <p className="text-sm text-muted">Permanently delete your account and all data</p>
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setShowDeleteConfirm(true)}
-                                    style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}
-                                >
-                                    Delete
+                            <>
+                                <h2 className="text-h3">{userName}</h2>
+                                <p className="text-body" style={{ color: 'var(--muted)' }}>{userEmail}</p>
+                                <Button variant="ghost" size="sm" onClick={handleEditClick} style={{ padding: 0, color: 'var(--brand-blue)', marginTop: '4px' }}>
+                                    Edit profile
                                 </Button>
-                            </div>
+                            </>
                         )}
-                    </Card>
+                    </div>
                 </div>
-            </section>
+
+                <div className="flex-col gap-lg">
+                    {/* General Settings */}
+                    <section>
+                        <h3 className="text-subheading" style={{ marginBottom: '12px', color: 'var(--muted)' }}>GENERAL</h3>
+                        <Card style={{ padding: 0, overflow: 'hidden' }}>
+                            <SettingsItem
+                                icon="🔔"
+                                label="Notifications"
+                                value={notificationsEnabled ? "On" : "Off"}
+                                onClick={() => setShowNotificationPopup(true)}
+                            />
+                            <SettingsItem icon="🌐" label="Language" value="English" isLast />
+                        </Card>
+                    </section>
+
+                    {/* Integrations */}
+                    <section>
+                        <h3 className="text-subheading" style={{ marginBottom: '12px', color: 'var(--muted)' }}>INTEGRATIONS</h3>
+                        <Card style={{ padding: 0, overflow: 'hidden' }}>
+                            <SettingsItem icon="💬" label="WhatsApp" value="Connected" valueColor="var(--brand-green)" />
+                            <SettingsItem icon="📧" label="Gmail" value="Connected" valueColor="var(--brand-green)" />
+                            <SettingsItem icon="📅" label="Calendar" value="Not connected" valueColor="var(--muted)" />
+                            <SettingsItem icon="💼" label="Upwork" value="Connected" valueColor="var(--brand-green)" />
+                            <SettingsItem icon="🎯" label="Fiverr" value="Not connected" valueColor="var(--muted)" />
+                            <SettingsItem icon="💻" label="Freelancer" value="Not connected" valueColor="var(--muted)" />
+                            <SettingsItem icon="🔗" label="LinkedIn" value="Connected" valueColor="var(--brand-green)" isLast />
+                        </Card>
+                    </section>
+
+                    {/* Subscription */}
+                    <section>
+                        <h3 className="text-subheading" style={{ marginBottom: '12px', color: 'var(--muted)' }}>SUBSCRIPTION</h3>
+                        <Card style={{ padding: '20px', background: 'linear-gradient(135deg, rgba(75, 107, 251, 0.1) 0%, rgba(54, 80, 201, 0.1) 100%)', border: '1px solid var(--brand-blue)' }}>
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h4 className="text-h3" style={{ color: 'var(--brand-blue)', marginBottom: '4px' }}>Pro Plan</h4>
+                                    <p className="text-caption" style={{ color: 'var(--muted)' }}>Renews on Mar 1, 2024</p>
+                                </div>
+                                <Badge variant="blue">ACTIVE</Badge>
+                            </div>
+                        </Card>
+                    </section>
+
+                    <Button
+                        variant="outline"
+                        fullWidth
+                        onClick={async () => {
+                            await signOut();
+                            router.push('/signup');
+                        }}
+                        style={{ borderColor: 'var(--brand-red)', color: 'var(--brand-red)' }}
+                    >
+                        Log out
+                    </Button>
+
+                    <div style={{ height: '80px' }}></div>
+                </div>
+            </div>
+
+            {/* Notification Popup */}
+            {showNotificationPopup && (
+                <div
+                    onClick={() => setShowNotificationPopup(false)}
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            background: 'var(--card-bg)',
+                            borderRadius: '16px',
+                            padding: '24px',
+                            width: '280px',
+                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+                        }}
+                    >
+                        <h3 className="text-h3" style={{ marginBottom: '20px', color: 'var(--foreground)' }}>
+                            Notifications
+                        </h3>
+                        <div className="flex justify-between items-center">
+                            <span className="text-body" style={{ color: 'var(--foreground)' }}>
+                                Push Notifications
+                            </span>
+                            <button
+                                onClick={toggleNotifications}
+                                style={{
+                                    width: '50px',
+                                    height: '28px',
+                                    borderRadius: '14px',
+                                    background: notificationsEnabled ? 'var(--brand-green)' : 'var(--muted)',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    position: 'relative',
+                                    transition: 'background 0.2s'
+                                }}
+                            >
+                                <div style={{
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '50%',
+                                    background: 'white',
+                                    position: 'absolute',
+                                    top: '2px',
+                                    left: notificationsEnabled ? '24px' : '2px',
+                                    transition: 'left 0.2s'
+                                }} />
+                            </button>
+                        </div>
+                        <Button
+                            variant="primary"
+                            fullWidth
+                            onClick={() => setShowNotificationPopup(false)}
+                            style={{ marginTop: '24px' }}
+                        >
+                            Done
+                        </Button>
+                    </div>
+                </div>
+            )}
         </main>
+    );
+}
+
+function SettingsItem({ icon, label, value, valueColor, isLast, onClick }: { icon: string, label: string, value?: string, valueColor?: string, isLast?: boolean, onClick?: () => void }) {
+    return (
+        <div className="flex justify-between items-center" onClick={onClick} style={{
+            padding: '16px 20px',
+            borderBottom: isLast ? 'none' : '1px solid var(--card-border)',
+            cursor: 'pointer'
+        }}>
+            <div className="flex items-center gap-md">
+                <span style={{ fontSize: '20px' }}>{icon}</span>
+                <span className="text-body" style={{ color: 'var(--foreground)' }}>{label}</span>
+            </div>
+            <div className="flex items-center gap-sm">
+                {value && (
+                    <span className="text-body" style={{ color: valueColor || 'var(--muted)' }}>{value}</span>
+                )}
+                <span style={{ color: 'var(--muted)', fontSize: '14px' }}>›</span>
+            </div>
+        </div>
     );
 }

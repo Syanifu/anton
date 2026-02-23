@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/context/AuthContext';
 
-export default function SignUpPage() {
+export default function LoginPage() {
     const router = useRouter();
     const { user, loading: authLoading, signInWithGoogle, signInWithApple, signInWithEmail } = useAuth();
 
@@ -29,7 +29,7 @@ export default function SignUpPage() {
         setError('');
         try {
             await signInWithGoogle();
-        } catch (err) {
+        } catch {
             setError('Failed to sign in with Google. Please try again.');
             setLoading(false);
         }
@@ -40,7 +40,7 @@ export default function SignUpPage() {
         setError('');
         try {
             await signInWithApple();
-        } catch (err) {
+        } catch {
             setError('Failed to sign in with Apple. Please try again.');
             setLoading(false);
         }
@@ -94,16 +94,15 @@ export default function SignUpPage() {
                     marginBottom: '24px',
                     boxShadow: '0 20px 40px -10px rgba(255,255,255,0.2)'
                 }}>
-                    {/* Placeholder for Logo */}
                     <div style={{ width: 40, height: 40, borderRadius: '50%', border: '4px solid #0F121C' }} />
                 </div>
 
                 <h1 className="text-h1 text-center" style={{ marginBottom: '12px', color: 'white' }}>
-                    Join Anton
+                    Welcome Back
                 </h1>
 
                 <p className="text-body text-center" style={{ color: 'rgba(255,255,255,0.8)', maxWidth: '280px', fontWeight: 500 }}>
-                    Build your freelance empire with an AI co-founder.
+                    Sign in to continue building your freelance empire.
                 </p>
             </div>
 
@@ -166,7 +165,7 @@ export default function SignUpPage() {
                 {/* Email Form */}
                 <form onSubmit={handleEmailLogin} className="flex-col gap-lg">
                     <div className="flex-col gap-xs">
-                        <label className="text-small" style={{ marginLeft: '4px', color: 'white' }}>Work Email</label>
+                        <label className="text-small" style={{ marginLeft: '4px', color: 'white' }}>Email</label>
                         <Input
                             placeholder="name@company.com"
                             value={email}
@@ -200,18 +199,14 @@ export default function SignUpPage() {
                             marginTop: '8px'
                         }}
                     >
-                        {loading ? 'Creating account...' : 'Create account'}
+                        {loading ? 'Signing in...' : 'Sign in with Email'}
                     </Button>
                 </form>
 
                 {/* Footer */}
                 <div style={{ marginTop: 'auto', paddingTop: '40px' }} className="text-center">
                     <p className="text-small" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                        Already have an account? <a href="#" onClick={() => router.push('/login')} style={{ color: 'white', fontWeight: 600 }}>Log In</a>
-                    </p>
-
-                    <p className="text-caption" style={{ marginTop: '24px', color: 'rgba(255,255,255,0.5)' }}>
-                        By signing up, you agree to our <a href="#" style={{ textDecoration: 'underline', color: 'white' }}>Terms of Service</a> and <a href="#" style={{ textDecoration: 'underline', color: 'white' }}>Privacy Policy</a>. Anton uses advanced AI to process your business data securely.
+                        Don&apos;t have an account? <a href="#" onClick={() => router.push('/signup')} style={{ color: 'white', fontWeight: 600 }}>Sign Up</a>
                     </p>
                 </div>
             </div>

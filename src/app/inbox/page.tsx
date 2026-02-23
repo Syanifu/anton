@@ -1,267 +1,210 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
+import { Avatar } from '@/components/ui/Avatar';
 import { mockConversations } from '@/lib/data';
-import { Conversation, Channel } from '@/lib/types';
+import { Conversation } from '@/lib/types';
 
-type FilterType = 'all' | 'unread' | 'leads' | 'idle';
+type FilterType = 'all' | 'unread' | 'pending';
 
 const FILTERS: { label: string; value: FilterType }[] = [
-    { label: 'All', value: 'all' },
+    { label: 'All Messages', value: 'all' },
     { label: 'Unread', value: 'unread' },
-    { label: 'Leads', value: 'leads' },
-    { label: 'Idle', value: 'idle' },
+    { label: 'Pending', value: 'pending' },
 ];
-
-const CHANNEL_ICONS: Record<Channel, { icon: string; color: string }> = {
-    whatsapp: { icon: '💬', color: '#25D366' },
-    slack: { icon: '🔷', color: '#4A154B' },
-    email: { icon: '✉️', color: '#EA4335' },
-    telegram: { icon: '📨', color: '#0088cc' },
-};
 
 export default function InboxPage() {
     const router = useRouter();
-    const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
+    const [conversations] = useState<Conversation[]>(mockConversations);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-    const [isRefreshing, setIsRefreshing] = useState(false);
 
-    const filteredConversations = conversations.filter((c) => {
-        switch (activeFilter) {
-            case 'unread': return c.unreadCount > 0;
-            case 'leads': return c.status === 'lead';
-            case 'idle': return c.status === 'idle';
-            default: return true;
-        }
-    });
-
-    const unreadCount = conversations.filter(c => c.unreadCount > 0).length;
-    const leadsCount = conversations.filter(c => c.status === 'lead').length;
-
-    const handleRefresh = useCallback(async () => {
-        setIsRefreshing(true);
-        // Simulate API refresh
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setConversations([...mockConversations]);
-        setIsRefreshing(false);
-    }, []);
-
-    const handleConversationClick = (id: string) => {
-        // Optimistic update: mark as read
-        setConversations(prev => prev.map(c =>
-            c.id === id ? { ...c, unreadCount: 0, lastMessage: { ...c.lastMessage, isRead: true } } : c
-        ));
-        router.push(`/conversation/${id}`);
-    };
-
-    const formatRelativeTime = (timestamp: string): string => {
-        const diff = Date.now() - new Date(timestamp).getTime();
-        const mins = Math.floor(diff / 60000);
-        if (mins < 1) return 'Just now';
-        if (mins < 60) return `${mins}m ago`;
-        const hours = Math.floor(mins / 60);
-        if (hours < 24) return `${hours}h ago`;
-        const days = Math.floor(hours / 24);
-        if (days === 1) return 'Yesterday';
-        if (days < 7) return `${days}d ago`;
-        return new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    };
-
-    const getLeadBadge = (score?: number): { label: string; variant: 'red' | 'blue' | 'gray' } | null => {
-        if (!score) return null;
-        if (score >= 0.85) return { label: 'HOT', variant: 'red' };
-        if (score >= 0.7) return { label: 'WARM', variant: 'blue' };
-        return { label: 'NEW', variant: 'gray' };
-    };
+    // TODO: Add mock user avatar
+    const userAvatar = "https://i.pravatar.cc/150?u=anton";
 
     return (
-        <main className="container animate-slide-in">
-            <header style={{ padding: 'var(--spacing-md)' }}>
-                <Button variant="ghost" size="sm" onClick={() => router.back()}>
-                    ← Back
-                </Button>
-                <div style={{ padding: 'var(--spacing-sm) 0' }}>
-                    <h1 style={{ fontSize: '2rem', fontWeight: '800' }}>Inbox</h1>
-                    <p className="text-muted">
-                        {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up'}
-                        {leadsCount > 0 && ` · ${leadsCount} leads`}
-                    </p>
-                </div>
-            </header>
+        <main className="container animate-fade-in">
+            {/* Header */}
+            <div className="flex justify-between items-center" style={{ padding: '24px 20px 12px' }}>
+                <h1 className="text-h1">Inbox</h1>
+                <Avatar src={userAvatar} size={40} />
+            </div>
 
-            {/* Pull to Refresh Button */}
-            <section style={{ padding: '0 var(--spacing-md) var(--spacing-sm)' }}>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleRefresh}
-                    disabled={isRefreshing}
-                    style={{ width: '100%', opacity: isRefreshing ? 0.6 : 1 }}
-                >
-                    {isRefreshing ? '↻ Refreshing...' : '↻ Pull to refresh'}
-                </Button>
-            </section>
+            {/* Filters */}
+            <div style={{ padding: '0 20px 24px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
+                {FILTERS.map((filter) => (
+                    <Button
+                        key={filter.value}
+                        size="md"
+                        variant={activeFilter === filter.value ? 'primary' : 'secondary'}
+                        onClick={() => setActiveFilter(filter.value)}
+                        style={{
+                            borderRadius: '9999px',
+                            padding: '0 20px',
+                            whiteSpace: 'nowrap',
+                            height: '40px',
+                            background: activeFilter === filter.value ? 'white' : 'var(--card-bg)',
+                            color: activeFilter === filter.value ? 'black' : 'var(--muted)',
+                            border: '1px solid var(--card-border)'
+                        }}
+                    >
+                        {filter.label}
+                        {filter.value === 'pending' && (
+                            <span style={{
+                                width: '6px',
+                                height: '6px',
+                                background: 'var(--brand-blue)',
+                                borderRadius: '50%',
+                                marginLeft: '6px'
+                            }} />
+                        )}
+                    </Button>
+                ))}
+            </div>
 
-            {/* Filter Tabs */}
-            <section style={{ padding: '0 var(--spacing-md) var(--spacing-md)' }}>
-                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto' }}>
-                    {FILTERS.map((filter) => (
-                        <Button
-                            key={filter.value}
-                            size="sm"
-                            variant={activeFilter === filter.value ? 'primary' : 'outline'}
-                            onClick={() => setActiveFilter(filter.value)}
-                            style={{ whiteSpace: 'nowrap' }}
-                        >
-                            {filter.label}
-                            {filter.value === 'unread' && unreadCount > 0 && (
-                                <span style={{
-                                    marginLeft: '6px',
-                                    background: activeFilter === 'unread' ? 'var(--background)' : 'var(--accent-red)',
-                                    color: activeFilter === 'unread' ? 'var(--foreground)' : 'white',
-                                    borderRadius: '9999px',
-                                    padding: '0 6px',
-                                    fontSize: '0.7rem',
-                                    fontWeight: 700
-                                }}>
-                                    {unreadCount}
-                                </span>
-                            )}
-                        </Button>
-                    ))}
-                </div>
-            </section>
+            {/* Conversation List */}
+            <div className="flex-col gap-md" style={{ padding: '0 20px' }}>
+                {conversations.map((conversation) => (
+                    <ConversationItem
+                        key={conversation.id}
+                        conversation={conversation}
+                        onClick={() => router.push(`/conversation/${conversation.id}`)}
+                    />
+                ))}
+            </div>
 
-            {/* Conversations List */}
-            <section style={{ padding: '0 var(--spacing-md) var(--spacing-lg)' }}>
-                <div className="flex-col gap-sm">
-                    {filteredConversations.length === 0 && (
-                        <Card className="shadow-sm" style={{ textAlign: 'center', padding: '32px' }}>
-                            <p className="text-muted">
-                                {activeFilter === 'unread' ? 'All caught up!' : `No ${activeFilter} conversations`}
-                            </p>
-                        </Card>
-                    )}
-
-                    {filteredConversations.map((conversation) => (
-                        <ConversationRow
-                            key={conversation.id}
-                            conversation={conversation}
-                            onClick={() => handleConversationClick(conversation.id)}
-                            formatRelativeTime={formatRelativeTime}
-                            getLeadBadge={getLeadBadge}
-                        />
-                    ))}
-                </div>
-            </section>
+            {/* Floating Action Button (Edit/Compose) */}
+            <button style={{
+                position: 'fixed',
+                bottom: '100px',
+                right: '24px',
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: 'white',
+                color: 'black',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                zIndex: 50,
+                fontSize: '24px'
+            }}>
+                ✏️
+            </button>
         </main>
     );
 }
 
-function ConversationRow({
-    conversation,
-    onClick,
-    formatRelativeTime,
-    getLeadBadge
-}: {
-    conversation: Conversation;
-    onClick: () => void;
-    formatRelativeTime: (ts: string) => string;
-    getLeadBadge: (score?: number) => { label: string; variant: 'red' | 'blue' | 'gray' } | null;
-}) {
-    const channel = CHANNEL_ICONS[conversation.channel];
-    const leadBadge = getLeadBadge(conversation.leadScore);
-    const hasUnread = conversation.unreadCount > 0;
+function ConversationItem({ conversation, onClick }: { conversation: Conversation; onClick: () => void }) {
+    const isUnread = conversation.unreadCount > 0;
 
     return (
         <Card
-            className="shadow-sm"
             onClick={onClick}
             style={{
-                cursor: 'pointer',
-                borderLeft: hasUnread ? '3px solid var(--accent-blue)' : undefined,
-                background: hasUnread ? 'var(--accent-blue-bg)' : undefined
+                background: 'var(--card-bg)',
+                border: '1px solid var(--card-border)',
+                padding: '16px',
+                position: 'relative'
             }}
         >
-            {/* Header Row */}
-            <div className="flex-between" style={{ marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {/* Channel Icon */}
-                    <span style={{ fontSize: '1.4rem' }}>{channel.icon}</span>
-
-                    {/* Client Name */}
-                    <span style={{ fontWeight: hasUnread ? 700 : 600 }}>
-                        {conversation.clientName}
-                    </span>
-
-                    {/* Lead Badge */}
-                    {leadBadge && (
-                        <Badge variant={leadBadge.variant} className="text-sm">
-                            {leadBadge.label}
-                        </Badge>
-                    )}
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {/* Timestamp */}
-                    <span className="text-sm text-muted">
-                        {formatRelativeTime(conversation.lastMessage.timestamp)}
-                    </span>
-
-                    {/* Unread Indicator */}
-                    {hasUnread && (
+            <div className="flex justify-between items-start" style={{ marginBottom: '8px' }}>
+                <div className="flex gap-md items-center">
+                    <div style={{ position: 'relative' }}>
+                        <Avatar src={`https://i.pravatar.cc/150?u=${conversation.clientName}`} size={48} />
                         <div style={{
-                            minWidth: '20px',
-                            height: '20px',
-                            borderRadius: '9999px',
-                            background: 'var(--accent-red)',
-                            color: 'white',
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
+                            position: 'absolute',
+                            bottom: -2,
+                            right: -2,
+                            width: 20,
+                            height: 20,
+                            background: 'var(--brand-blue)',
+                            borderRadius: '50%',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            padding: '0 6px'
+                            fontSize: '10px',
+                            color: 'white',
+                            border: '2px solid var(--card-bg)'
                         }}>
-                            {conversation.unreadCount}
+                            ⚡️
                         </div>
-                    )}
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-sm">
+                            <span className="text-body font-bold" style={{ color: 'var(--foreground)' }}>
+                                {conversation.clientName}
+                            </span>
+                            <span className="text-caption" style={{ color: 'var(--brand-blue)' }}>
+                                {formatTime(conversation.lastMessage.timestamp)}
+                            </span>
+                        </div>
+                        <p className="text-body font-medium" style={{ color: 'var(--foreground)', marginTop: '2px' }}>
+                            {/* Simulate 'Subject' or first line of message */}
+                            {conversation.lastMessage.text.substring(0, 25)}...
+                        </p>
+                    </div>
                 </div>
+
+                {isUnread && (
+                    <div style={{
+                        background: 'white',
+                        color: 'black',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        {conversation.unreadCount}
+                    </div>
+                )}
             </div>
 
-            {/* Message Preview */}
-            <p style={{
-                margin: '0 0 6px 0',
-                fontSize: '0.9rem',
-                color: hasUnread ? 'var(--foreground)' : 'var(--muted)',
-                fontWeight: hasUnread ? 500 : 400,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                paddingLeft: '34px'
+            <p className="text-small" style={{
+                color: 'var(--muted)',
+                lineHeight: '1.5',
+                marginBottom: '16px',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden'
             }}>
-                {conversation.lastMessage.sender === 'me' && (
-                    <span style={{ color: 'var(--muted)' }}>You: </span>
-                )}
                 {conversation.lastMessage.text}
             </p>
 
-            {/* AI Summary */}
-            {conversation.aiSummary && (
-                <p style={{
-                    margin: 0,
-                    fontSize: '0.85rem',
-                    color: 'var(--accent-blue)',
-                    fontStyle: 'italic',
-                    paddingLeft: '34px'
+            {/* AI Suggestion Area */}
+            <div style={{
+                background: 'rgba(75, 107, 251, 0.1)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+            }}>
+                <span style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: 'var(--brand-blue)',
+                    letterSpacing: '0.05em'
                 }}>
-                    ✨ {conversation.aiSummary}
-                </p>
-            )}
+                    ANTON SUGGESTS
+                </span>
+                <span className="text-caption" style={{ color: 'var(--muted-light)', fontStyle: 'italic' }}>
+                    "{conversation.aiSummary || 'Draft a reply...'}"
+                </span>
+            </div>
         </Card>
     );
+}
+
+function formatTime(timestamp: string) {
+    // Simple mock formatter
+    return '2M AGO';
 }

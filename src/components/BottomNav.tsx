@@ -9,11 +9,11 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-    { label: 'Today', path: '/', icon: '🏠' },
-    { label: 'Inbox', path: '/inbox', icon: '💬' },
+    { label: 'Home', path: '/', icon: '🏠' },
     { label: 'Drafts', path: '/drafts', icon: '📝' },
+    { label: 'Anton', path: '/anton', icon: '◉' },
     { label: 'Money', path: '/money', icon: '💰' },
-    { label: 'Profile', path: '/profile', icon: '👤' },
+    { label: 'Settings', path: '/profile', icon: '⚙️' },
 ];
 
 export function BottomNav() {
@@ -24,17 +24,39 @@ export function BottomNav() {
     if (pathname === '/signup') return null;
 
     return (
-        <nav className="bottom-nav">
+        <nav style={{
+            position: 'fixed',
+            bottom: 20,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--card-bg)',
+            border: '1px solid var(--card-border)',
+            borderRadius: '9999px',
+            padding: '12px 24px',
+            display: 'flex',
+            gap: '32px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+            zIndex: 100
+        }}>
             {navItems.map((item) => {
                 const isActive = pathname === item.path;
                 return (
                     <button
                         key={item.path}
                         onClick={() => router.push(item.path)}
-                        className={`bottom-nav-item ${isActive ? 'active' : ''}`}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            opacity: isActive ? 1 : 0.5,
+                            color: isActive ? '#4B6BFB' : 'inherit',
+                            transition: 'all 0.2s ease',
+                            padding: 0
+                        }}
+                        aria-label={item.label}
                     >
-                        <span className="bottom-nav-icon">{item.icon}</span>
-                        <span className="bottom-nav-label">{item.label}</span>
+                        {item.icon}
                     </button>
                 );
             })}
