@@ -28,11 +28,20 @@ export interface RouterResult {
 
 // Event to mission mapping
 const EVENT_ROUTES: Record<string, string> = {
+    // Existing routes
     'message.inserted': 'anton-message-pipeline',
     'lead.created': 'pipeline-awareness-mission',
     'invoice.inserted': 'finance-awareness-mission',
     'invoice.overdue': 'invoice-reminder-mission',
     'conversation.idle': 'followup-mission',
+    // V2 routes
+    'client.created': 'client-awareness-mission',
+    'project.created': 'project-awareness-mission',
+    'project.updated': 'project-awareness-mission',
+    'lead.converted': 'project-creation-mission',
+    'milestone.approaching': 'milestone-reminder-mission',
+    'daily.digest': 'daily-digest-mission',
+    'project.status_check': 'project-status-check-mission',
 };
 
 async function logToMissionLogs(
@@ -157,6 +166,33 @@ async function dispatchToMission(
             await executeFollowup(payload);
             break;
         }
+        // V2 missions
+        case 'project-creation-mission': {
+            const { executeProjectCreation } = await import('./dispatchers/project-creation');
+            await executeProjectCreation(payload);
+            break;
+        }
+        case 'project-status-check-mission': {
+            const { executeProjectStatusCheck } = await import('./dispatchers/project-status-check');
+            await executeProjectStatusCheck(payload);
+            break;
+        }
+        case 'milestone-reminder-mission': {
+            const { executeMilestoneReminder } = await import('./dispatchers/milestone-reminder');
+            await executeMilestoneReminder(payload);
+            break;
+        }
+        case 'daily-digest-mission': {
+            const { executeDailyDigest } = await import('./dispatchers/daily-digest');
+            await executeDailyDigest(payload);
+            break;
+        }
+        case 'client-awareness-mission':
+        case 'project-awareness-mission': {
+            // These are logging/awareness events — no specific dispatcher needed
+            // The webhook trigger already logged the event
+            break;
+        }
         default:
             throw new Error(`No dispatcher for mission: ${missionName}`);
     }
@@ -165,7 +201,7 @@ async function dispatchToMission(
 export const mission = {
     name: 'anton-mission-router',
     trigger: 'webhook',
-    version: '1.0.0',
+    version: '2.0.0',
     execute: routeEvent,
 };
 

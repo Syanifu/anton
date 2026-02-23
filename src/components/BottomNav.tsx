@@ -9,19 +9,20 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-    { label: 'Home', path: '/', icon: '🏠' },
-    { label: 'Drafts', path: '/drafts', icon: '📝' },
-    { label: 'Anton', path: '/anton', icon: '◉' },
+    { label: 'Today', path: '/', icon: '📅' },
+    { label: 'Inbox', path: '/inbox', icon: '📥' },
+    { label: 'Clients', path: '/clients', icon: '👥' },
+    { label: 'Leads', path: '/leads', icon: '📈' },
+    { label: 'Projects', path: '/projects', icon: '📁' },
     { label: 'Money', path: '/money', icon: '💰' },
-    { label: 'Settings', path: '/profile', icon: '⚙️' },
 ];
 
 export function BottomNav() {
     const router = useRouter();
     const pathname = usePathname();
 
-    // Don't show on signup page
-    if (pathname === '/signup') return null;
+    // Don't show on signup or login pages
+    if (pathname === '/signup' || pathname === '/login') return null;
 
     return (
         <nav style={{
@@ -34,7 +35,7 @@ export function BottomNav() {
             borderRadius: '9999px',
             padding: '12px 24px',
             display: 'flex',
-            gap: '32px',
+            gap: '20px',
             boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
             zIndex: 100
         }}>
@@ -48,7 +49,7 @@ export function BottomNav() {
                             background: 'none',
                             border: 'none',
                             cursor: 'pointer',
-                            fontSize: '20px',
+                            fontSize: '18px',
                             opacity: isActive ? 1 : 0.5,
                             color: isActive ? '#4B6BFB' : 'inherit',
                             transition: 'all 0.2s ease',

@@ -1,19 +1,22 @@
 /**
  * Step 2 — Lead Scoring (deterministic logic)
  *
- * Computes lead score from weighted signals:
- * - budget_present: +0.30
- * - timeline_present: +0.20
- * - intent=project_inquiry: +0.25
- * - deliverables_defined: +0.15
- * - urgency_score * 0.10
- * - message_length>40: +0.05
- * - repeat_client: +0.10
+ * V2: Updated weights per build plan section 2.6
  *
- * Classification:
- * - >= 0.85: HOT
- * - >= 0.60: WARM
- * - >= 0.35: COLD
+ * Signal weights:
+ * - Budget mentioned: 0.25
+ * - Timeline mentioned: 0.20
+ * - Deliverables listed: 0.15
+ * - Decision-maker identified: 0.15
+ * - Existing client (has past projects): 0.10
+ * - Reply speed (fast = high interest): 0.10
+ * - Channel intent (email > WhatsApp): 0.05
+ *
+ * Thresholds:
+ * - HOT (>= 0.85): immediate push notification
+ * - WARM (0.60-0.84): suggest lead creation
+ * - COLD (0.35-0.59): store context
+ * - Below 0.35: no action
  */
 
 import {
@@ -21,22 +24,25 @@ import {
     LeadScoringResult,
     LeadPriority,
     LeadSignals,
+    Channel,
 } from '../types';
 
 interface LeadScoringInput {
     intelligence: ConversationIntelligence;
     messageLength: number;
     isRepeatClient: boolean;
+    channel?: Channel;
+    hasExistingProjects?: boolean;
 }
 
 const WEIGHTS = {
-    budgetPresent: 0.30,
-    timelinePresent: 0.20,
-    intentIsProjectInquiry: 0.25,
-    deliverablesDefiend: 0.15,
-    urgencyMultiplier: 0.10,
-    messageLengthBonus: 0.05,
-    repeatClient: 0.10,
+    budgetMentioned: 0.25,
+    timelineMentioned: 0.20,
+    deliverablesListed: 0.15,
+    decisionMakerIdentified: 0.15,
+    existingClient: 0.10,
+    replySpeed: 0.10,
+    channelIntent: 0.05,
 };
 
 const THRESHOLDS = {
@@ -45,16 +51,13 @@ const THRESHOLDS = {
     COLD: 0.35,
 };
 
-function getUrgencyScore(urgency: 'high' | 'medium' | 'low'): number {
-    switch (urgency) {
-        case 'high':
-            return 1.0;
-        case 'medium':
-            return 0.5;
-        case 'low':
-            return 0.2;
-        default:
-            return 0.3;
+function getChannelIntentScore(channel?: Channel): number {
+    switch (channel) {
+        case 'email': return 1.0;
+        case 'slack': return 0.7;
+        case 'whatsapp': return 0.5;
+        case 'telegram': return 0.4;
+        default: return 0.5;
     }
 }
 
@@ -64,17 +67,31 @@ function classifyPriority(score: number): LeadPriority {
     return 'COLD';
 }
 
+function getClassification(score: number): string {
+    if (score >= THRESHOLDS.HOT) return 'hot';
+    if (score >= THRESHOLDS.WARM) return 'warm';
+    if (score >= THRESHOLDS.COLD) return 'cold';
+    return 'none';
+}
+
 export function computeLeadScore(input: LeadScoringInput): LeadScoringResult {
-    const { intelligence, messageLength, isRepeatClient } = input;
+    const { intelligence, messageLength, isRepeatClient, channel, hasExistingProjects } = input;
     const { entities, intent, urgency } = intelligence;
+
+    const channelIntentScore = getChannelIntentScore(channel);
 
     // Compute signals
     const signals: LeadSignals = {
-        budgetPresent: !!entities.budget,
+        budgetPresent: !!entities.budget?.amount,
         timelinePresent: !!entities.timeline,
+        deliverablesListed: (entities.deliverables?.length || 0) > 0,
+        decisionMakerIdentified: intent === 'project_inquiry',
+        existingClient: hasExistingProjects || isRepeatClient,
+        replySpeed: urgency, // Use urgency as proxy for reply speed/interest
+        channelIntent: channelIntentScore,
+        // Derived / legacy
+        urgencyScore: urgency,
         intentIsProjectInquiry: intent === 'project_inquiry',
-        deliverablesDefiend: (entities.deliverables?.length || 0) > 0,
-        urgencyScore: getUrgencyScore(urgency),
         messageLengthBonus: messageLength > 40,
         isRepeatClient,
     };
@@ -82,31 +99,13 @@ export function computeLeadScore(input: LeadScoringInput): LeadScoringResult {
     // Calculate weighted score
     let score = 0;
 
-    if (signals.budgetPresent) {
-        score += WEIGHTS.budgetPresent;
-    }
-
-    if (signals.timelinePresent) {
-        score += WEIGHTS.timelinePresent;
-    }
-
-    if (signals.intentIsProjectInquiry) {
-        score += WEIGHTS.intentIsProjectInquiry;
-    }
-
-    if (signals.deliverablesDefiend) {
-        score += WEIGHTS.deliverablesDefiend;
-    }
-
-    score += signals.urgencyScore * WEIGHTS.urgencyMultiplier;
-
-    if (signals.messageLengthBonus) {
-        score += WEIGHTS.messageLengthBonus;
-    }
-
-    if (signals.isRepeatClient) {
-        score += WEIGHTS.repeatClient;
-    }
+    if (signals.budgetPresent) score += WEIGHTS.budgetMentioned;
+    if (signals.timelinePresent) score += WEIGHTS.timelineMentioned;
+    if (signals.deliverablesListed) score += WEIGHTS.deliverablesListed;
+    if (signals.decisionMakerIdentified) score += WEIGHTS.decisionMakerIdentified;
+    if (signals.existingClient) score += WEIGHTS.existingClient;
+    score += signals.replySpeed * WEIGHTS.replySpeed;
+    score += signals.channelIntent * WEIGHTS.channelIntent;
 
     // Clamp to 1.0
     score = Math.min(score, 1.0);
@@ -114,6 +113,7 @@ export function computeLeadScore(input: LeadScoringInput): LeadScoringResult {
     return {
         score,
         priority: classifyPriority(score),
+        classification: getClassification(score),
         signals,
     };
 }

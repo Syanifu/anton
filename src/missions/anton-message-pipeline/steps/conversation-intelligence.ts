@@ -1,13 +1,16 @@
 /**
  * Step 1 — Conversation Intelligence (LLM task)
  *
+ * V2: Updated system prompt with project_signals output.
+ *
  * Analyzes incoming message to extract:
- * - AI summary of the conversation
+ * - Summary of the conversation
  * - Intent classification
- * - Urgency level
- * - Entities (budget, timeline, deliverables, etc.)
+ * - Urgency level (0.0 to 1.0)
+ * - Entities (budget, timeline, deliverables, dates, payment terms)
  * - Suggested actions
  * - Lead candidate score
+ * - Project signals (new project detection, stage change)
  */
 
 import { ConversationIntelligence, MessageHistoryItem, Channel } from '../types';
@@ -17,30 +20,52 @@ interface ConversationIntelligenceInput {
     channel: Channel;
     clientName: string;
     conversationHistory: MessageHistoryItem[];
+    clientContext?: string;
 }
 
-const SYSTEM_PROMPT = `You are an AI assistant for a freelancer. Analyze incoming client messages to extract actionable intelligence.
+const SYSTEM_PROMPT = `You are Anton's conversation intelligence engine for freelancer businesses.
 
-Your task is to analyze the message and return a JSON object with:
-1. aiSummary: A concise 1-2 sentence summary of what the client wants/needs
-2. intent: One of: project_inquiry, payment_query, scope_clarification, follow_up, scheduling, casual_chat, introduction, complaint, unknown
-3. urgency: high (needs response within hours), medium (within 24h), low (no rush)
-4. entities: Extract any mentioned budget, timeline, deliverables, project type, contact info
-5. suggestedActions: Array of recommended next steps
-6. leadCandidateScore: 0-1 score based on project potential
+INPUT: A conversation thread between a freelancer and their client, plus client context if available.
 
-Focus on signals that indicate a serious business opportunity vs casual conversation.`;
+PRODUCE this exact JSON:
+{
+  "summary": "One-line summary of the latest message/exchange",
+  "intent": "project_inquiry | payment_query | scope_clarification | follow_up | scheduling | feedback | casual_chat | spam",
+  "urgency": 0.0 to 1.0,
+  "entities": {
+    "budget": {"amount": number or null, "currency": "USD"},
+    "timeline": "description or null",
+    "deliverables": ["list"] or [],
+    "dates": ["YYYY-MM-DD"] or [],
+    "payment_terms": "string or null"
+  },
+  "suggested_actions": ["ranked list of: create_lead, draft_proposal, ask_clarifying_question, create_project, send_invoice, schedule_followup, no_action"],
+  "project_signals": {
+    "is_new_project": boolean,
+    "stage_change_detected": "stage name or null"
+  }
+}
+
+RULES:
+- Never invent budgets, timelines, or deliverables. If missing, set null.
+- If critical info is missing, put ask_clarifying_question first in suggested_actions.
+- Urgency > 0.7 requires explicit deadline or payment language.
+- Never mention AI or Anton in any output.`;
 
 function buildUserPrompt(input: ConversationIntelligenceInput): string {
     const historyContext = input.conversationHistory.length > 0
         ? `\n\nConversation history:\n${input.conversationHistory
-            .slice(-5) // Last 5 messages for context
+            .slice(-5)
             .map(m => `${m.role}: ${m.content}`)
             .join('\n')}`
         : '';
 
+    const clientContext = input.clientContext
+        ? `\nClient context: ${input.clientContext}`
+        : '';
+
     return `Client: ${input.clientName}
-Channel: ${input.channel}
+Channel: ${input.channel}${clientContext}
 ${historyContext}
 
 New message:
@@ -89,12 +114,25 @@ export async function runConversationIntelligence(
     const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || [null, content];
     const parsed = JSON.parse(jsonMatch[1] || content);
 
+    // Map V2 LLM output keys to internal interface
     return {
-        aiSummary: parsed.aiSummary || 'Unable to summarize',
+        aiSummary: parsed.summary || parsed.aiSummary || 'Unable to summarize',
         intent: parsed.intent || 'unknown',
-        urgency: parsed.urgency || 'medium',
-        entities: parsed.entities || {},
-        suggestedActions: parsed.suggestedActions || [],
+        urgency: typeof parsed.urgency === 'number' ? parsed.urgency : 0.5,
+        entities: {
+            budget: parsed.entities?.budget || undefined,
+            timeline: parsed.entities?.timeline || undefined,
+            deliverables: parsed.entities?.deliverables || [],
+            dates: parsed.entities?.dates || [],
+            paymentTerms: parsed.entities?.payment_terms || undefined,
+        },
+        suggestedActions: (parsed.suggested_actions || parsed.suggestedActions || []).map(
+            (a: string) => a === 'no_action' ? 'none' : a
+        ),
         leadCandidateScore: parsed.leadCandidateScore || 0,
+        projectSignals: {
+            isNewProject: parsed.project_signals?.is_new_project ?? false,
+            stageChangeDetected: parsed.project_signals?.stage_change_detected ?? null,
+        },
     };
 }

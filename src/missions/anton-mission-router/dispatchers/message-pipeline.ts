@@ -1,11 +1,15 @@
 /**
  * Dispatcher: message-pipeline
  * Loads context and executes anton-message-pipeline mission
+ *
+ * V2: Added client identification step before pipeline execution.
+ * If conversation has no client_id, runs identifyClient to find/create one.
  */
 
 import { getSupabase } from '@/lib/supabase';
 import { EventEnvelope } from '../mission';
 import { mission as messagePipeline } from '../../anton-message-pipeline/mission';
+import { identifyClient } from '../../anton-message-pipeline/steps/client-identification';
 
 export async function executePipeline(payload: EventEnvelope): Promise<void> {
     const supabase = getSupabase();
@@ -44,7 +48,21 @@ export async function executePipeline(payload: EventEnvelope): Promise<void> {
         throw new Error(`Conversation not found: ${message.conversation_id}`);
     }
 
-    // Fetch client
+    // V2: Client Identification — run if conversation has no client_id
+    let clientId = conversation.client_id;
+
+    if (!clientId) {
+        const identification = await identifyClient({
+            supabase,
+            userId,
+            messageContent: message.content,
+            channel: conversation.channel,
+            conversationId: conversation.id,
+        });
+        clientId = identification.clientId;
+    }
+
+    // Fetch client (now guaranteed to exist)
     const { data: client, error: clientError } = await supabase
         .from('clients')
         .select(`
@@ -53,12 +71,18 @@ export async function executePipeline(payload: EventEnvelope): Promise<void> {
             phone,
             email
         `)
-        .eq('id', conversation.client_id)
+        .eq('id', clientId)
         .single();
 
     if (clientError || !client) {
-        throw new Error(`Client not found: ${conversation.client_id}`);
+        throw new Error(`Client not found: ${clientId}`);
     }
+
+    // Update last_interaction_at on every message
+    await supabase
+        .from('clients')
+        .update({ last_interaction_at: new Date().toISOString() })
+        .eq('id', client.id);
 
     // Count client's conversations for repeat client detection
     const { count: conversationCount } = await supabase

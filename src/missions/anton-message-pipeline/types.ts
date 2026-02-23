@@ -53,10 +53,16 @@ export interface MissionDefinition {
 export interface ConversationIntelligence {
     aiSummary: string;
     intent: Intent;
-    urgency: 'high' | 'medium' | 'low';
+    urgency: number; // V2: 0.0 to 1.0
     entities: ExtractedEntities;
     suggestedActions: SuggestedAction[];
     leadCandidateScore: number;
+    projectSignals: ProjectSignals; // V2
+}
+
+export interface ProjectSignals {
+    isNewProject: boolean;
+    stageChangeDetected: string | null;
 }
 
 export type Intent =
@@ -65,15 +71,19 @@ export type Intent =
     | 'scope_clarification'
     | 'follow_up'
     | 'scheduling'
+    | 'feedback'
     | 'casual_chat'
+    | 'spam'
     | 'introduction'
     | 'complaint'
     | 'unknown';
 
 export interface ExtractedEntities {
-    budget?: { amount: number; currency: string };
-    timeline?: { startDate?: string; deadline?: string; duration?: string };
+    budget?: { amount: number | null; currency: string };
+    timeline?: string | null;
     deliverables?: string[];
+    dates?: string[];
+    paymentTerms?: string | null;
     projectType?: string;
     contactInfo?: { email?: string; phone?: string };
 }
@@ -82,9 +92,12 @@ export type SuggestedAction =
     | 'create_lead'
     | 'draft_proposal'
     | 'ask_clarifying_question'
-    | 'schedule_call'
+    | 'create_project'
     | 'send_invoice'
+    | 'schedule_followup'
+    | 'schedule_call'
     | 'escalate'
+    | 'no_action'
     | 'none';
 
 // Step 2 outputs
@@ -93,15 +106,21 @@ export type LeadPriority = 'HOT' | 'WARM' | 'COLD';
 export interface LeadScoringResult {
     score: number;
     priority: LeadPriority;
+    classification: string;
     signals: LeadSignals;
 }
 
 export interface LeadSignals {
     budgetPresent: boolean;
     timelinePresent: boolean;
-    intentIsProjectInquiry: boolean;
-    deliverablesDefiend: boolean;
+    deliverablesListed: boolean;
+    decisionMakerIdentified: boolean;
+    existingClient: boolean;
+    replySpeed: number;
+    channelIntent: number;
+    // Derived
     urgencyScore: number;
+    intentIsProjectInquiry: boolean;
     messageLengthBonus: boolean;
     isRepeatClient: boolean;
 }
