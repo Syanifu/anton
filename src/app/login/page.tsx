@@ -205,19 +205,23 @@ export default function LoginPage() {
 
                 {/* Guest Mode */}
                 <div style={{ marginTop: '24px' }}>
-                    <Button
-                        variant="ghost"
-                        size="lg"
-                        fullWidth
+                    <button
                         onClick={() => { signInAsGuest(); router.push('/'); }}
                         style={{
-                            color: 'rgba(255,255,255,0.7)',
-                            border: '1px dashed rgba(255,255,255,0.2)',
+                            width: '100%',
+                            height: '56px',
+                            background: 'rgba(255,255,255,0.05)',
+                            color: 'rgba(255,255,255,0.8)',
+                            border: '1px dashed rgba(255,255,255,0.3)',
                             borderRadius: '12px',
+                            fontSize: '17px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
                         }}
                     >
                         Open as Guest
-                    </Button>
+                    </button>
                     <p className="text-caption text-center" style={{ color: 'rgba(255,255,255,0.4)', marginTop: '8px' }}>
                         Explore the app with sample data — no account needed
                     </p>
