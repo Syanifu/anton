@@ -29,7 +29,7 @@ export default function SignUpPage() {
         setError('');
         try {
             await signInWithGoogle();
-        } catch (err) {
+        } catch {
             setError('Failed to sign in with Google. Please try again.');
             setLoading(false);
         }
@@ -40,7 +40,7 @@ export default function SignUpPage() {
         setError('');
         try {
             await signInWithApple();
-        } catch (err) {
+        } catch {
             setError('Failed to sign in with Apple. Please try again.');
             setLoading(false);
         }

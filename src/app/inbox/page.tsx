@@ -1,32 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { useAuth } from '@/context/AuthContext';
-import { guestConversations } from '@/lib/guest-data';
-
-interface Message {
-    id: string;
-    text: string;
-    sender: string;
-    timestamp: string;
-}
-
-interface Conversation {
-    id: string;
-    client_name: string;
-    sender: string;
-    channel: string;
-    last_message: Message;
-    unread_count: number;
-    ai_summary: string;
-    status: string;
-    lead_score?: number;
-}
+import { useInboxData } from '@/hooks/useInboxData';
+import { GuestBanner } from '@/components/GuestBanner';
 
 type FilterType = 'all' | 'unread' | 'leads';
 
@@ -47,54 +29,9 @@ const channelIcons: Record<string, string> = {
 
 export default function InboxPage() {
     const router = useRouter();
-    const { session, user, isGuest } = useAuth();
-    const [conversations, setConversations] = useState<Conversation[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { user, isGuest } = useAuth();
+    const { conversations, loading, quickAction } = useInboxData();
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-
-    useEffect(() => {
-        async function fetchConversations() {
-            if (isGuest) {
-                setConversations(guestConversations.map((c) => ({
-                    id: c.id,
-                    client_name: c.client_name,
-                    sender: c.client_name,
-                    channel: c.channel,
-                    last_message: {
-                        id: c.id,
-                        text: c.last_message,
-                        sender: c.client_name,
-                        timestamp: c.last_message_at,
-                    },
-                    unread_count: c.unread_count,
-                    ai_summary: c.ai_summary,
-                    status: c.status,
-                    lead_score: c.lead_score ?? undefined,
-                })));
-                setLoading(false);
-                return;
-            }
-
-            try {
-                const token = session?.access_token || localStorage.getItem('auth_token');
-                const res = await fetch('/api/conversations', {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setConversations(data.conversations || data || []);
-                }
-            } catch (err) {
-                console.error('Failed to fetch conversations:', err);
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        fetchConversations();
-    }, [session, isGuest]);
 
     const filteredConversations = conversations.filter((c) => {
         if (activeFilter === 'unread') return c.unread_count > 0;
@@ -125,40 +62,11 @@ export default function InboxPage() {
     }
 
     async function handleQuickAction(action: string, conversationId: string) {
-        if (isGuest) { alert('Sign up to use this feature'); return; }
-        try {
-            const token = session?.access_token || localStorage.getItem('auth_token');
-            const headers = {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            };
-
-            switch (action) {
-                case 'create_lead':
-                    await fetch('/api/leads', {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify({ conversation_id: conversationId }),
-                    });
-                    break;
-                case 'draft_proposal':
-                    router.push(`/proposals/new?conversation=${conversationId}`);
-                    break;
-                case 'mark_done':
-                    await fetch(`/api/conversations/${conversationId}/mark-done`, {
-                        method: 'POST',
-                        headers,
-                    });
-                    setConversations((prev) =>
-                        prev.map((c) =>
-                            c.id === conversationId ? { ...c, unread_count: 0 } : c
-                        )
-                    );
-                    break;
-            }
-        } catch (err) {
-            console.error('Quick action failed:', err);
+        if (action === 'draft_proposal') {
+            router.push(`/proposals/new?conversation=${conversationId}`);
+            return;
         }
+        await quickAction(action, conversationId);
     }
 
     return (
@@ -175,37 +83,7 @@ export default function InboxPage() {
             </div>
 
             {/* Guest Mode Banner */}
-            {isGuest && (
-                <div style={{
-                    margin: '12px 20px 0',
-                    padding: '10px 16px',
-                    background: 'rgba(75, 107, 251, 0.1)',
-                    border: '1px solid rgba(75, 107, 251, 0.3)',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                }}>
-                    <span className="text-small" style={{ color: 'var(--brand-blue)' }}>
-                        Viewing sample data
-                    </span>
-                    <button
-                        onClick={() => router.push('/signup')}
-                        style={{
-                            background: 'var(--brand-blue)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            padding: '4px 12px',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                        }}
-                    >
-                        Sign Up
-                    </button>
-                </div>
-            )}
+            <GuestBanner />
 
             {/* Filter Tabs */}
             <div style={{ padding: '0 20px 24px', display: 'flex', gap: '8px', overflowX: 'auto' }}>

@@ -38,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Check if guest mode was previously set
         if (typeof window !== 'undefined' && localStorage.getItem('guest_mode') === 'true') {
             setIsGuest(true);
+            document.cookie = 'guest_mode=true; path=/; max-age=31536000';
             setLoading(false);
         }
     }, []);
@@ -141,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signInAsGuest = useCallback(() => {
         setIsGuest(true);
         localStorage.setItem('guest_mode', 'true');
+        document.cookie = 'guest_mode=true; path=/; max-age=31536000';
         setLoading(false);
     }, []);
 
@@ -149,6 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isGuest) {
             setIsGuest(false);
             localStorage.removeItem('guest_mode');
+            document.cookie = 'guest_mode=; path=/; max-age=0';
             return;
         }
 

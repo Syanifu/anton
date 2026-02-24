@@ -1,24 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { useAuth } from '@/context/AuthContext';
-import { guestProjects } from '@/lib/guest-data';
-
-interface Project {
-    id: string;
-    title: string;
-    client_id: string;
-    client_name: string;
-    stage: string;
-    status: string;
-    budget: number;
-    deadline: string;
-    created_at: string;
-}
+import { useProjects } from '@/hooks/useProjects';
+import { GuestBanner } from '@/components/GuestBanner';
 
 type FilterType = 'all' | 'active' | 'completed';
 
@@ -69,47 +57,8 @@ function getDeadlineCountdown(deadline: string): string {
 
 export default function ProjectsPage() {
     const router = useRouter();
-    const { session, isGuest } = useAuth();
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { projects, loading } = useProjects();
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-
-    useEffect(() => {
-        async function fetchProjects() {
-            if (isGuest) {
-                setProjects(guestProjects.map((p) => ({
-                    id: p.id,
-                    title: p.title,
-                    client_id: p.client_id,
-                    client_name: p.client_name,
-                    stage: p.stage,
-                    status: p.status,
-                    budget: p.budget,
-                    deadline: p.deadline || '',
-                    created_at: p.created_at,
-                })));
-                setLoading(false);
-                return;
-            }
-
-            try {
-                const token = session?.access_token || localStorage.getItem('auth_token');
-                const res = await fetch('/api/projects', {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setProjects(data.projects || data || []);
-                }
-            } catch (err) {
-                console.error('Failed to fetch projects:', err);
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        fetchProjects();
-    }, [session, isGuest]);
 
     const filteredProjects = activeFilter === 'all'
         ? projects
@@ -126,37 +75,7 @@ export default function ProjectsPage() {
             </div>
 
             {/* Guest Mode Banner */}
-            {isGuest && (
-                <div style={{
-                    margin: '12px 20px 0',
-                    padding: '10px 16px',
-                    background: 'rgba(75, 107, 251, 0.1)',
-                    border: '1px solid rgba(75, 107, 251, 0.3)',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                }}>
-                    <span className="text-small" style={{ color: 'var(--brand-blue)' }}>
-                        Viewing sample data
-                    </span>
-                    <button
-                        onClick={() => router.push('/signup')}
-                        style={{
-                            background: 'var(--brand-blue)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            padding: '4px 12px',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                        }}
-                    >
-                        Sign Up
-                    </button>
-                </div>
-            )}
+            <GuestBanner />
 
             {/* Filter Tabs */}
             <div style={{ padding: '0 20px 20px', display: 'flex', gap: '8px', overflowX: 'auto' }}>

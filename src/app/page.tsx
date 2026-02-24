@@ -1,131 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/context/AuthContext';
-import { guestTodayData, guestProjects } from '@/lib/guest-data';
-
-interface PriorityAction {
-    id: string;
-    title: string;
-    description: string;
-    type: string;
-    urgency: string;
-    client_name?: string;
-}
-
-interface Opportunity {
-    id: string;
-    client_name: string;
-    title: string;
-    score: number;
-    budget?: number;
-}
-
-interface MoneyOverview {
-    earned_this_month: number;
-    outstanding: number;
-    expected: number;
-}
-
-interface MomentumData {
-    pending_replies: number;
-    idle_conversations: number;
-}
-
-interface Project {
-    id: string;
-    name: string;
-    client_name: string;
-    stage: string;
-    deadline: string;
-    status: 'on_track' | 'at_risk' | 'behind';
-}
+import { useTodayData } from '@/hooks/useTodayData';
+import { GuestBanner } from '@/components/GuestBanner';
 
 export default function TodayPage() {
     const router = useRouter();
-    const { session, user, isGuest } = useAuth();
-    const [loading, setLoading] = useState(true);
-    const [priorities, setPriorities] = useState<PriorityAction[]>([]);
-    const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-    const [money, setMoney] = useState<MoneyOverview>({ earned_this_month: 0, outstanding: 0, expected: 0 });
-    const [momentum, setMomentum] = useState<MomentumData>({ pending_replies: 0, idle_conversations: 0 });
-    const [projects, setProjects] = useState<Project[]>([]);
-
-    useEffect(() => {
-        async function fetchData() {
-            if (isGuest) {
-                setPriorities(guestTodayData.priority.slice(0, 5));
-                setOpportunities(
-                    guestTodayData.opportunities.map((o) => ({
-                        id: o.id,
-                        client_name: o.clientName,
-                        title: o.title,
-                        score: o.score,
-                        budget: o.budget,
-                    }))
-                );
-                setMoney({
-                    earned_this_month: guestTodayData.money.paidThisMonth,
-                    outstanding: guestTodayData.money.outstanding,
-                    expected: guestTodayData.money.expected,
-                });
-                setMomentum({
-                    pending_replies: guestTodayData.momentum.replyPendingCount,
-                    idle_conversations: guestTodayData.momentum.idleConversations,
-                });
-                setProjects(
-                    guestProjects
-                        .filter((p) => p.stage !== 'completed')
-                        .map((p) => ({
-                            id: p.id,
-                            name: p.title,
-                            client_name: p.client_name,
-                            stage: p.stage,
-                            deadline: p.deadline,
-                            status: p.status as 'on_track' | 'at_risk' | 'behind',
-                        }))
-                );
-                setLoading(false);
-                return;
-            }
-
-            try {
-                const token = session?.access_token || localStorage.getItem('auth_token');
-                const headers = { Authorization: `Bearer ${token}` };
-
-                const [todayRes, projectsRes] = await Promise.all([
-                    fetch('/api/today', { headers }),
-                    fetch('/api/projects?status=active', { headers }),
-                ]);
-
-                if (todayRes.ok) {
-                    const data = await todayRes.json();
-                    setPriorities((data.priority || data.priorities || []).slice(0, 5));
-                    setOpportunities(
-                        (data.opportunities || []).filter((o: Opportunity) => o.score >= 0.6)
-                    );
-                    setMoney(data.money || { earned_this_month: 0, outstanding: 0, expected: 0 });
-                    setMomentum(data.momentum || { pending_replies: 0, idle_conversations: 0 });
-                }
-
-                if (projectsRes.ok) {
-                    const projData = await projectsRes.json();
-                    setProjects(projData.projects || projData || []);
-                }
-            } catch (err) {
-                console.error('Failed to fetch today data:', err);
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        fetchData();
-    }, [session, isGuest]);
+    const { user } = useAuth();
+    const { priorities, opportunities, money, momentum, projects, loading, isGuest } = useTodayData();
 
     function getGreeting() {
         const hour = new Date().getHours();
@@ -181,37 +68,7 @@ export default function TodayPage() {
             </div>
 
             {/* Guest Mode Banner */}
-            {isGuest && (
-                <div style={{
-                    margin: '12px 20px 0',
-                    padding: '10px 16px',
-                    background: 'rgba(75, 107, 251, 0.1)',
-                    border: '1px solid rgba(75, 107, 251, 0.3)',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                }}>
-                    <span className="text-small" style={{ color: 'var(--brand-blue)' }}>
-                        Viewing sample data
-                    </span>
-                    <button
-                        onClick={() => router.push('/signup')}
-                        style={{
-                            background: 'var(--brand-blue)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            padding: '4px 12px',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                        }}
-                    >
-                        Sign Up
-                    </button>
-                </div>
-            )}
+            <GuestBanner />
 
             {/* Loading State */}
             {loading && (
@@ -341,20 +198,20 @@ export default function TodayPage() {
                                 <div>
                                     <p className="text-caption" style={{ color: 'var(--muted)', marginBottom: '4px' }}>This Month</p>
                                     <p style={{ fontSize: '28px', fontWeight: 700, color: 'var(--foreground)' }}>
-                                        ${money.earned_this_month.toLocaleString()}
+                                        ${(money?.earned_this_month ?? 0).toLocaleString()}
                                     </p>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
                                     <p className="text-caption" style={{ color: 'var(--muted)', marginBottom: '4px' }}>Outstanding</p>
                                     <p style={{ fontSize: '20px', fontWeight: 600, color: 'var(--brand-red)' }}>
-                                        ${money.outstanding.toLocaleString()}
+                                        ${(money?.outstanding ?? 0).toLocaleString()}
                                     </p>
                                 </div>
                             </div>
                             <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px' }}>
                                 <p className="text-caption" style={{ color: 'var(--muted)', marginBottom: '4px' }}>Expected</p>
                                 <p style={{ fontSize: '18px', fontWeight: 600, color: 'var(--brand-green)' }}>
-                                    ${money.expected.toLocaleString()}
+                                    ${(money?.expected ?? 0).toLocaleString()}
                                 </p>
                             </div>
                         </Card>
@@ -434,13 +291,13 @@ export default function TodayPage() {
                                 <div>
                                     <p className="text-caption" style={{ color: 'var(--muted)', marginBottom: '4px' }}>Pending Replies</p>
                                     <p style={{ fontSize: '24px', fontWeight: 700, color: 'var(--brand-blue)' }}>
-                                        {momentum.pending_replies}
+                                        {momentum?.pending_replies ?? 0}
                                     </p>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
                                     <p className="text-caption" style={{ color: 'var(--muted)', marginBottom: '4px' }}>Idle Conversations</p>
                                     <p style={{ fontSize: '24px', fontWeight: 700, color: '#f59e0b' }}>
-                                        {momentum.idle_conversations}
+                                        {momentum?.idle_conversations ?? 0}
                                     </p>
                                 </div>
                             </div>

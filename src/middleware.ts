@@ -22,6 +22,11 @@ export async function middleware(request: NextRequest) {
         return response;
     }
 
+    // Allow guest mode (guest_mode cookie set by client)
+    if (request.cookies.get('guest_mode')?.value === 'true') {
+        return response;
+    }
+
     // Check if Supabase env vars are available
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
