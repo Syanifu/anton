@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/context/AuthContext';
+import { guestClients } from '@/lib/guest-data';
 
 interface Client {
     id: string;
@@ -30,13 +31,29 @@ const channelIcons: Record<string, string> = {
 
 export default function ClientsPage() {
     const router = useRouter();
-    const { session } = useAuth();
+    const { session, isGuest } = useAuth();
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
 
     useEffect(() => {
         async function fetchClients() {
+            if (isGuest) {
+                setClients(guestClients.map((c) => ({
+                    id: c.id,
+                    name: c.name,
+                    company: c.company || '',
+                    email: c.email,
+                    phone: c.phone || '',
+                    channels: c.channels.map((ch) => ch.type),
+                    total_revenue: c.total_revenue,
+                    active_projects_count: c.active_projects_count,
+                    last_interaction_at: c.last_interaction_at,
+                })));
+                setLoading(false);
+                return;
+            }
+
             try {
                 const token = session?.access_token || localStorage.getItem('auth_token');
                 const res = await fetch('/api/clients', {
@@ -56,7 +73,7 @@ export default function ClientsPage() {
         }
 
         fetchClients();
-    }, [session]);
+    }, [session, isGuest]);
 
     const filteredClients = clients.filter((c) =>
         c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -83,6 +100,39 @@ export default function ClientsPage() {
                 <h1 className="text-h1">Clients</h1>
                 <Badge variant="blue">{clients.length}</Badge>
             </div>
+
+            {/* Guest Mode Banner */}
+            {isGuest && (
+                <div style={{
+                    margin: '12px 20px 0',
+                    padding: '10px 16px',
+                    background: 'rgba(75, 107, 251, 0.1)',
+                    border: '1px solid rgba(75, 107, 251, 0.3)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}>
+                    <span className="text-small" style={{ color: 'var(--brand-blue)' }}>
+                        Viewing sample data
+                    </span>
+                    <button
+                        onClick={() => router.push('/signup')}
+                        style={{
+                            background: 'var(--brand-blue)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Sign Up
+                    </button>
+                </div>
+            )}
 
             {/* Search Bar */}
             <div style={{ padding: '0 20px 20px' }}>

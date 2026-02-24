@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 
 export default function SignUpPage() {
     const router = useRouter();
-    const { user, loading: authLoading, signInWithGoogle, signInWithApple, signInWithEmail } = useAuth();
+    const { user, loading: authLoading, isGuest, signInWithGoogle, signInWithApple, signInWithEmail, signInAsGuest } = useAuth();
 
     // State
     const [email, setEmail] = useState('');
@@ -16,12 +16,12 @@ export default function SignUpPage() {
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
 
-    // Redirect if already logged in
+    // Redirect if already logged in or guest
     useEffect(() => {
-        if (user && !authLoading) {
+        if ((user || isGuest) && !authLoading) {
             router.push('/');
         }
-    }, [user, authLoading, router]);
+    }, [user, isGuest, authLoading, router]);
 
     // Handlers
     const handleGoogleLogin = async () => {
@@ -203,6 +203,26 @@ export default function SignUpPage() {
                         {loading ? 'Creating account...' : 'Create account'}
                     </Button>
                 </form>
+
+                {/* Guest Mode */}
+                <div style={{ marginTop: '24px' }}>
+                    <Button
+                        variant="ghost"
+                        size="lg"
+                        fullWidth
+                        onClick={() => { signInAsGuest(); router.push('/'); }}
+                        style={{
+                            color: 'rgba(255,255,255,0.7)',
+                            border: '1px dashed rgba(255,255,255,0.2)',
+                            borderRadius: '12px',
+                        }}
+                    >
+                        Open as Guest
+                    </Button>
+                    <p className="text-caption text-center" style={{ color: 'rgba(255,255,255,0.4)', marginTop: '8px' }}>
+                        Explore the app with sample data — no account needed
+                    </p>
+                </div>
 
                 {/* Footer */}
                 <div style={{ marginTop: 'auto', paddingTop: '40px' }} className="text-center">

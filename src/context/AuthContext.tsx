@@ -8,9 +8,11 @@ interface AuthContextType {
     user: User | null;
     session: Session | null;
     loading: boolean;
+    isGuest: boolean;
     signInWithGoogle: () => Promise<void>;
     signInWithApple: () => Promise<void>;
     signInWithEmail: (email: string) => Promise<{ error?: string }>;
+    signInAsGuest: () => void;
     signOut: () => Promise<void>;
 }
 
@@ -20,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isGuest, setIsGuest] = useState(false);
     const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
 
     // Initialize Supabase client on mount (client-side only)
@@ -29,6 +32,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setSupabase(client);
         } catch {
             console.error('Failed to initialize Supabase client');
+            setLoading(false);
+        }
+
+        // Check if guest mode was previously set
+        if (typeof window !== 'undefined' && localStorage.getItem('guest_mode') === 'true') {
+            setIsGuest(true);
             setLoading(false);
         }
     }, []);
@@ -129,7 +138,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return {};
     }, [supabase]);
 
+    const signInAsGuest = useCallback(() => {
+        setIsGuest(true);
+        localStorage.setItem('guest_mode', 'true');
+        setLoading(false);
+    }, []);
+
     const signOut = useCallback(async () => {
+        // Clear guest mode
+        if (isGuest) {
+            setIsGuest(false);
+            localStorage.removeItem('guest_mode');
+            return;
+        }
+
         if (!supabase) throw new Error('Supabase not initialized');
 
         const { error } = await supabase.auth.signOut();
@@ -138,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             throw error;
         }
         localStorage.removeItem('auth_token');
-    }, [supabase]);
+    }, [supabase, isGuest]);
 
     return (
         <AuthContext.Provider
@@ -146,9 +168,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 user,
                 session,
                 loading,
+                isGuest,
                 signInWithGoogle,
                 signInWithApple,
                 signInWithEmail,
+                signInAsGuest,
                 signOut,
             }}
         >

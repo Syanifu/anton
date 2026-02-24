@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useAuth } from '@/context/AuthContext';
+import { guestProjects } from '@/lib/guest-data';
 
 interface Project {
     id: string;
@@ -68,13 +69,29 @@ function getDeadlineCountdown(deadline: string): string {
 
 export default function ProjectsPage() {
     const router = useRouter();
-    const { session } = useAuth();
+    const { session, isGuest } = useAuth();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
     useEffect(() => {
         async function fetchProjects() {
+            if (isGuest) {
+                setProjects(guestProjects.map((p) => ({
+                    id: p.id,
+                    title: p.title,
+                    client_id: p.client_id,
+                    client_name: p.client_name,
+                    stage: p.stage,
+                    status: p.status,
+                    budget: p.budget,
+                    deadline: p.deadline || '',
+                    created_at: p.created_at,
+                })));
+                setLoading(false);
+                return;
+            }
+
             try {
                 const token = session?.access_token || localStorage.getItem('auth_token');
                 const res = await fetch('/api/projects', {
@@ -92,7 +109,7 @@ export default function ProjectsPage() {
         }
 
         fetchProjects();
-    }, [session]);
+    }, [session, isGuest]);
 
     const filteredProjects = activeFilter === 'all'
         ? projects
@@ -107,6 +124,39 @@ export default function ProjectsPage() {
                 <h1 className="text-h1">Projects</h1>
                 <Badge variant="blue">{projects.length}</Badge>
             </div>
+
+            {/* Guest Mode Banner */}
+            {isGuest && (
+                <div style={{
+                    margin: '12px 20px 0',
+                    padding: '10px 16px',
+                    background: 'rgba(75, 107, 251, 0.1)',
+                    border: '1px solid rgba(75, 107, 251, 0.3)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}>
+                    <span className="text-small" style={{ color: 'var(--brand-blue)' }}>
+                        Viewing sample data
+                    </span>
+                    <button
+                        onClick={() => router.push('/signup')}
+                        style={{
+                            background: 'var(--brand-blue)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Sign Up
+                    </button>
+                </div>
+            )}
 
             {/* Filter Tabs */}
             <div style={{ padding: '0 20px 20px', display: 'flex', gap: '8px', overflowX: 'auto' }}>

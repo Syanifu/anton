@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/context/AuthContext';
+import { guestMoneySummary, guestInvoices } from '@/lib/guest-data';
 
 interface MoneySummary {
     earned_this_month: number;
@@ -26,7 +27,7 @@ interface Invoice {
 
 export default function MoneyPage() {
     const router = useRouter();
-    const { session, user } = useAuth();
+    const { session, user, isGuest } = useAuth();
     const [loading, setLoading] = useState(true);
     const [summary, setSummary] = useState<MoneySummary>({
         earned_this_month: 0,
@@ -38,6 +39,25 @@ export default function MoneyPage() {
 
     useEffect(() => {
         async function fetchData() {
+            if (isGuest) {
+                setSummary({
+                    earned_this_month: guestMoneySummary.earnedThisMonth,
+                    outstanding: guestMoneySummary.outstanding,
+                    expected: guestMoneySummary.expected,
+                    net_estimate: guestMoneySummary.netIncome,
+                });
+                setInvoices(guestInvoices.map((i) => ({
+                    id: i.id,
+                    client_name: i.client_name,
+                    project_name: i.project_name || '',
+                    amount: i.amount,
+                    status: i.status as 'draft' | 'sent' | 'paid' | 'overdue',
+                    due_date: i.due_date,
+                })));
+                setLoading(false);
+                return;
+            }
+
             try {
                 const token = session?.access_token || localStorage.getItem('auth_token');
                 const headers = { Authorization: `Bearer ${token}` };
@@ -69,7 +89,7 @@ export default function MoneyPage() {
         }
 
         fetchData();
-    }, [session]);
+    }, [session, isGuest]);
 
     function getStatusBadgeVariant(status: string): 'gray' | 'blue' | 'green' | 'red' {
         switch (status) {
@@ -98,6 +118,7 @@ export default function MoneyPage() {
     }
 
     async function handleSendReminder(invoiceId: string) {
+        if (isGuest) { alert('Sign up to use this feature'); return; }
         try {
             const token = session?.access_token || localStorage.getItem('auth_token');
             await fetch(`/api/invoices/${invoiceId}/remind`, {
@@ -110,6 +131,7 @@ export default function MoneyPage() {
     }
 
     async function handleMarkPaid(invoiceId: string) {
+        if (isGuest) { alert('Sign up to use this feature'); return; }
         try {
             const token = session?.access_token || localStorage.getItem('auth_token');
             const res = await fetch(`/api/invoices/${invoiceId}/mark-paid`, {
@@ -137,6 +159,39 @@ export default function MoneyPage() {
                     <Avatar src={user?.user_metadata?.avatar_url} size={40} />
                 </div>
             </div>
+
+            {/* Guest Mode Banner */}
+            {isGuest && (
+                <div style={{
+                    margin: '12px 20px 0',
+                    padding: '10px 16px',
+                    background: 'rgba(75, 107, 251, 0.1)',
+                    border: '1px solid rgba(75, 107, 251, 0.3)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}>
+                    <span className="text-small" style={{ color: 'var(--brand-blue)' }}>
+                        Viewing sample data
+                    </span>
+                    <button
+                        onClick={() => router.push('/signup')}
+                        style={{
+                            background: 'var(--brand-blue)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Sign Up
+                    </button>
+                </div>
+            )}
 
             {/* Loading State */}
             {loading && (
@@ -295,7 +350,7 @@ export default function MoneyPage() {
 
             {/* FAB - Create Invoice */}
             <button
-                onClick={() => router.push('/money/create-invoice')}
+                onClick={() => { if (isGuest) { alert('Sign up to use this feature'); return; } router.push('/money/create-invoice'); }}
                 style={{
                     position: 'fixed',
                     bottom: '100px',

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/context/AuthContext';
+import { guestTodayData, guestProjects } from '@/lib/guest-data';
 
 interface PriorityAction {
     id: string;
@@ -47,7 +48,7 @@ interface Project {
 
 export default function TodayPage() {
     const router = useRouter();
-    const { session, user } = useAuth();
+    const { session, user, isGuest } = useAuth();
     const [loading, setLoading] = useState(true);
     const [priorities, setPriorities] = useState<PriorityAction[]>([]);
     const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -57,6 +58,42 @@ export default function TodayPage() {
 
     useEffect(() => {
         async function fetchData() {
+            if (isGuest) {
+                setPriorities(guestTodayData.priority.slice(0, 5));
+                setOpportunities(
+                    guestTodayData.opportunities.map((o) => ({
+                        id: o.id,
+                        client_name: o.clientName,
+                        title: o.title,
+                        score: o.score,
+                        budget: o.budget,
+                    }))
+                );
+                setMoney({
+                    earned_this_month: guestTodayData.money.paidThisMonth,
+                    outstanding: guestTodayData.money.outstanding,
+                    expected: guestTodayData.money.expected,
+                });
+                setMomentum({
+                    pending_replies: guestTodayData.momentum.replyPendingCount,
+                    idle_conversations: guestTodayData.momentum.idleConversations,
+                });
+                setProjects(
+                    guestProjects
+                        .filter((p) => p.stage !== 'completed')
+                        .map((p) => ({
+                            id: p.id,
+                            name: p.title,
+                            client_name: p.client_name,
+                            stage: p.stage,
+                            deadline: p.deadline,
+                            status: p.status as 'on_track' | 'at_risk' | 'behind',
+                        }))
+                );
+                setLoading(false);
+                return;
+            }
+
             try {
                 const token = session?.access_token || localStorage.getItem('auth_token');
                 const headers = { Authorization: `Bearer ${token}` };
@@ -88,7 +125,7 @@ export default function TodayPage() {
         }
 
         fetchData();
-    }, [session]);
+    }, [session, isGuest]);
 
     function getGreeting() {
         const hour = new Date().getHours();
@@ -143,6 +180,39 @@ export default function TodayPage() {
                 </div>
             </div>
 
+            {/* Guest Mode Banner */}
+            {isGuest && (
+                <div style={{
+                    margin: '12px 20px 0',
+                    padding: '10px 16px',
+                    background: 'rgba(75, 107, 251, 0.1)',
+                    border: '1px solid rgba(75, 107, 251, 0.3)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}>
+                    <span className="text-small" style={{ color: 'var(--brand-blue)' }}>
+                        Viewing sample data
+                    </span>
+                    <button
+                        onClick={() => router.push('/signup')}
+                        style={{
+                            background: 'var(--brand-blue)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Sign Up
+                    </button>
+                </div>
+            )}
+
             {/* Loading State */}
             {loading && (
                 <div style={{ padding: '40px 20px', textAlign: 'center' }}>
@@ -188,6 +258,7 @@ export default function TodayPage() {
                                             <Button
                                                 size="sm"
                                                 variant="primary"
+                                                onClick={() => { if (isGuest) { alert('Sign up to use this feature'); } }}
                                                 style={{
                                                     background: 'white',
                                                     color: 'black',

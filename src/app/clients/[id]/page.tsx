@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/context/AuthContext';
+import { guestClients, guestConversations, guestLeads, guestProjects, guestInvoices } from '@/lib/guest-data';
 
 interface ClientDetail {
     id: string;
@@ -66,7 +67,7 @@ export default function ClientDetailPage() {
     const router = useRouter();
     const params = useParams();
     const clientId = params.id as string;
-    const { session } = useAuth();
+    const { session, isGuest } = useAuth();
 
     const [client, setClient] = useState<ClientDetail | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('conversations');
@@ -79,6 +80,70 @@ export default function ClientDetailPage() {
 
     useEffect(() => {
         async function fetchClient() {
+            if (isGuest) {
+                const gc = guestClients.find((c) => c.id === clientId);
+                if (gc) {
+                    setClient({
+                        id: gc.id,
+                        name: gc.name,
+                        company: gc.company || '',
+                        email: gc.email,
+                        phone: gc.phone || '',
+                        channels: gc.channels.map((ch) => ch.type),
+                        total_revenue: gc.total_revenue,
+                        active_projects_count: gc.active_projects_count,
+                        last_interaction_at: gc.last_interaction_at,
+                        notes: gc.ai_notes || '',
+                    });
+                    setConversations(
+                        guestConversations
+                            .filter((c) => c.client_id === clientId)
+                            .map((c) => ({
+                                id: c.id,
+                                channel: c.channel,
+                                last_message: c.last_message,
+                                timestamp: c.last_message_at,
+                                unread: c.unread_count > 0,
+                            }))
+                    );
+                    setLeads(
+                        guestLeads
+                            .filter((l) => l.client_id === clientId)
+                            .map((l) => ({
+                                id: l.id,
+                                title: l.title,
+                                score: l.priority,
+                                budget: l.budget || 0,
+                                status: l.status,
+                            }))
+                    );
+                    setProjects(
+                        guestProjects
+                            .filter((p) => p.client_id === clientId)
+                            .map((p) => ({
+                                id: p.id,
+                                title: p.title,
+                                stage: p.stage,
+                                status: p.status,
+                                deadline: p.deadline || '',
+                            }))
+                    );
+                    setInvoices(
+                        guestInvoices
+                            .filter((i) => i.client_id === clientId)
+                            .map((i) => ({
+                                id: i.id,
+                                amount: i.amount,
+                                status: i.status,
+                                due_date: i.due_date,
+                            }))
+                    );
+                    setAiNotes(gc.ai_notes || '');
+                }
+                setLoading(false);
+                return;
+            }
+
             try {
                 const token = session?.access_token || localStorage.getItem('auth_token');
                 const headers = { Authorization: `Bearer ${token}` };
@@ -101,7 +166,7 @@ export default function ClientDetailPage() {
         }
 
         if (clientId) fetchClient();
-    }, [clientId, session]);
+    }, [clientId, session, isGuest]);
 
     const channelIcons: Record<string, string> = {
         whatsapp: '💬', email: '📧', phone: '📞', instagram: '📸', telegram: '✈️', sms: '💌',
@@ -150,6 +215,39 @@ export default function ClientDetailPage() {
                     ← Back
                 </Button>
             </div>
+
+            {/* Guest Mode Banner */}
+            {isGuest && (
+                <div style={{
+                    margin: '12px 20px 0',
+                    padding: '10px 16px',
+                    background: 'rgba(75, 107, 251, 0.1)',
+                    border: '1px solid rgba(75, 107, 251, 0.3)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}>
+                    <span className="text-small" style={{ color: 'var(--brand-blue)' }}>
+                        Viewing sample data
+                    </span>
+                    <button
+                        onClick={() => router.push('/signup')}
+                        style={{
+                            background: 'var(--brand-blue)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Sign Up
+                    </button>
+                </div>
+            )}
 
             {/* Client Header */}
             <div style={{ padding: '12px 20px 24px' }}>

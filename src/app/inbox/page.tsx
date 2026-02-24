@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { useAuth } from '@/context/AuthContext';
+import { guestConversations } from '@/lib/guest-data';
 
 interface Message {
     id: string;
@@ -46,13 +47,34 @@ const channelIcons: Record<string, string> = {
 
 export default function InboxPage() {
     const router = useRouter();
-    const { session, user } = useAuth();
+    const { session, user, isGuest } = useAuth();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
     useEffect(() => {
         async function fetchConversations() {
+            if (isGuest) {
+                setConversations(guestConversations.map((c) => ({
+                    id: c.id,
+                    client_name: c.client_name,
+                    sender: c.client_name,
+                    channel: c.channel,
+                    last_message: {
+                        id: c.id,
+                        text: c.last_message,
+                        sender: c.client_name,
+                        timestamp: c.last_message_at,
+                    },
+                    unread_count: c.unread_count,
+                    ai_summary: c.ai_summary,
+                    status: c.status,
+                    lead_score: c.lead_score ?? undefined,
+                })));
+                setLoading(false);
+                return;
+            }
+
             try {
                 const token = session?.access_token || localStorage.getItem('auth_token');
                 const res = await fetch('/api/conversations', {
@@ -72,7 +94,7 @@ export default function InboxPage() {
         }
 
         fetchConversations();
-    }, [session]);
+    }, [session, isGuest]);
 
     const filteredConversations = conversations.filter((c) => {
         if (activeFilter === 'unread') return c.unread_count > 0;
@@ -103,6 +125,7 @@ export default function InboxPage() {
     }
 
     async function handleQuickAction(action: string, conversationId: string) {
+        if (isGuest) { alert('Sign up to use this feature'); return; }
         try {
             const token = session?.access_token || localStorage.getItem('auth_token');
             const headers = {
@@ -150,6 +173,39 @@ export default function InboxPage() {
                     <Avatar src={user?.user_metadata?.avatar_url} size={40} />
                 </div>
             </div>
+
+            {/* Guest Mode Banner */}
+            {isGuest && (
+                <div style={{
+                    margin: '12px 20px 0',
+                    padding: '10px 16px',
+                    background: 'rgba(75, 107, 251, 0.1)',
+                    border: '1px solid rgba(75, 107, 251, 0.3)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}>
+                    <span className="text-small" style={{ color: 'var(--brand-blue)' }}>
+                        Viewing sample data
+                    </span>
+                    <button
+                        onClick={() => router.push('/signup')}
+                        style={{
+                            background: 'var(--brand-blue)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Sign Up
+                    </button>
+                </div>
+            )}
 
             {/* Filter Tabs */}
             <div style={{ padding: '0 20px 24px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
@@ -394,24 +450,27 @@ export default function InboxPage() {
             )}
 
             {/* Floating Action Button (Compose) */}
-            <button style={{
-                position: 'fixed',
-                bottom: '100px',
-                right: '24px',
-                width: '56px',
-                height: '56px',
-                borderRadius: '50%',
-                background: 'white',
-                color: 'black',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                zIndex: 50,
-                fontSize: '24px',
-                border: 'none',
-                cursor: 'pointer',
-            }}>
+            <button
+                onClick={() => { if (isGuest) { alert('Sign up to use this feature'); return; } }}
+                style={{
+                    position: 'fixed',
+                    bottom: '100px',
+                    right: '24px',
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    background: 'white',
+                    color: 'black',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    zIndex: 50,
+                    fontSize: '24px',
+                    border: 'none',
+                    cursor: 'pointer',
+                }}
+            >
                 ✏️
             </button>
 

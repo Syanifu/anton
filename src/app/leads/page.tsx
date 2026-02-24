@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/context/AuthContext';
+import { guestLeads } from '@/lib/guest-data';
 
 interface Lead {
     id: string;
@@ -32,7 +33,7 @@ const FILTERS: { label: string; value: FilterType; color?: string }[] = [
 
 export default function LeadsPage() {
     const router = useRouter();
-    const { session } = useAuth();
+    const { session, isGuest } = useAuth();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
@@ -40,6 +41,23 @@ export default function LeadsPage() {
 
     useEffect(() => {
         async function fetchLeads() {
+            if (isGuest) {
+                setLeads(guestLeads.map((l) => ({
+                    id: l.id,
+                    client_id: l.client_id,
+                    client_name: l.client_name,
+                    title: l.title,
+                    score: l.priority,
+                    budget: l.budget || 0,
+                    status: l.status,
+                    source: '',
+                    created_at: l.created_at,
+                    notes: l.ai_summary || '',
+                })));
+                setLoading(false);
+                return;
+            }
+
             try {
                 const token = session?.access_token || localStorage.getItem('auth_token');
                 const res = await fetch('/api/leads', {
@@ -57,7 +75,7 @@ export default function LeadsPage() {
         }
 
         fetchLeads();
-    }, [session]);
+    }, [session, isGuest]);
 
     const filteredLeads = activeFilter === 'all'
         ? leads
@@ -106,6 +124,39 @@ export default function LeadsPage() {
                 <h1 className="text-h1">Leads</h1>
                 <Badge variant="blue">{leads.length}</Badge>
             </div>
+
+            {/* Guest Mode Banner */}
+            {isGuest && (
+                <div style={{
+                    margin: '12px 20px 0',
+                    padding: '10px 16px',
+                    background: 'rgba(75, 107, 251, 0.1)',
+                    border: '1px solid rgba(75, 107, 251, 0.3)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}>
+                    <span className="text-small" style={{ color: 'var(--brand-blue)' }}>
+                        Viewing sample data
+                    </span>
+                    <button
+                        onClick={() => router.push('/signup')}
+                        style={{
+                            background: 'var(--brand-blue)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Sign Up
+                    </button>
+                </div>
+            )}
 
             {/* Filter Chips */}
             <div style={{ padding: '0 20px 20px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
@@ -209,7 +260,7 @@ export default function LeadsPage() {
                         <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleConvert(lead.id)}
+                            onClick={() => { if (isGuest) { alert('Sign up to use this feature'); return; } handleConvert(lead.id); }}
                             disabled={convertingId === lead.id}
                             style={{
                                 borderRadius: '9999px',

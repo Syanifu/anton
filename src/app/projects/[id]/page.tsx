@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useAuth } from '@/context/AuthContext';
+import { guestProjects } from '@/lib/guest-data';
 
 interface Milestone {
     id: string;
@@ -72,7 +73,7 @@ export default function ProjectDetailPage() {
     const router = useRouter();
     const params = useParams();
     const projectId = params.id as string;
-    const { session } = useAuth();
+    const { session, isGuest } = useAuth();
 
     const [project, setProject] = useState<ProjectDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -80,6 +81,33 @@ export default function ProjectDetailPage() {
 
     useEffect(() => {
         async function fetchProject() {
+            if (isGuest) {
+                const gp = guestProjects.find((p) => p.id === projectId);
+                if (gp) {
+                    setProject({
+                        id: gp.id,
+                        title: gp.title,
+                        client_id: gp.client_id,
+                        client_name: gp.client_name,
+                        stage: gp.stage,
+                        status: gp.status,
+                        budget: gp.budget,
+                        spent: 0,
+                        deadline: gp.deadline || '',
+                        description: gp.description || '',
+                        milestones: (gp.milestones || []).map((m) => ({
+                            id: m.id,
+                            title: m.title,
+                            completed: m.completed_at !== null,
+                            due_date: m.due_date || '',
+                        })),
+                        created_at: gp.created_at,
+                    });
+                }
+                setLoading(false);
+                return;
+            }
+
             try {
                 const token = session?.access_token || localStorage.getItem('auth_token');
                 const res = await fetch(`/api/projects/${projectId}`, {
@@ -97,7 +125,7 @@ export default function ProjectDetailPage() {
         }
 
         if (projectId) fetchProject();
-    }, [projectId, session]);
+    }, [projectId, session, isGuest]);
 
     async function handleCreateInvoice() {
         setCreatingInvoice(true);
@@ -159,6 +187,39 @@ export default function ProjectDetailPage() {
                     ← Back
                 </Button>
             </div>
+
+            {/* Guest Mode Banner */}
+            {isGuest && (
+                <div style={{
+                    margin: '12px 20px 0',
+                    padding: '10px 16px',
+                    background: 'rgba(75, 107, 251, 0.1)',
+                    border: '1px solid rgba(75, 107, 251, 0.3)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                }}>
+                    <span className="text-small" style={{ color: 'var(--brand-blue)' }}>
+                        Viewing sample data
+                    </span>
+                    <button
+                        onClick={() => router.push('/signup')}
+                        style={{
+                            background: 'var(--brand-blue)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        Sign Up
+                    </button>
+                </div>
+            )}
 
             {/* Project Header Card */}
             <div style={{ padding: '12px 20px 24px' }}>
@@ -309,7 +370,7 @@ export default function ProjectDetailPage() {
                     variant="primary"
                     size="lg"
                     fullWidth
-                    onClick={handleCreateInvoice}
+                    onClick={() => { if (isGuest) { alert('Sign up to use this feature'); return; } handleCreateInvoice(); }}
                     disabled={creatingInvoice}
                     style={{
                         borderRadius: 'var(--radius-lg)',
